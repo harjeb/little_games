@@ -6,10 +6,7 @@ class AppLocalizations {
 
   final Locale locale;
 
-  static const supportedLocales = <Locale>[
-    Locale('en'),
-    Locale('zh'),
-  ];
+  static const supportedLocales = <Locale>[Locale('en'), Locale('zh')];
 
   static const localizationsDelegates = <LocalizationsDelegate<dynamic>>[
     AppLocalizationsDelegate(),
@@ -23,7 +20,10 @@ class AppLocalizations {
       context,
       AppLocalizations,
     );
-    assert(localizations != null, 'AppLocalizations is not available in context.');
+    assert(
+      localizations != null,
+      'AppLocalizations is not available in context.',
+    );
     return localizations!;
   }
 
@@ -47,6 +47,7 @@ class AppLocalizations {
   String get bestTime => isChinese ? '最佳时间' : 'Best Time';
   String get playYahtzee => isChinese ? '开始 Yahtzee' : 'Play Yahtzee';
   String get play2048 => isChinese ? '开始 2048' : 'Play 2048';
+  String get playMatch3 => isChinese ? '开始三消' : 'Play Match-3';
   String get playSudoku => isChinese ? '开始数独' : 'Play Sudoku';
   String get yahtzeeDescription => isChinese
       ? '掷出五枚骰子，锁住想保留的点数，挑战完整的 13 轮计分表。'
@@ -57,6 +58,9 @@ class AppLocalizations {
   String get sudokuDescription => isChinese
       ? '选择难度、填满九宫格，挑战更快更稳的通关时间。'
       : 'Pick a difficulty, fill the grid, and chase your cleanest completion time.';
+  String get match3Description => isChinese
+      ? '交换糖块、连线消除，打出连锁与特殊块，完成不同关卡目标。'
+      : 'Swap pieces, build cascades, and clear each board objective with style.';
   String get shortEasy => isChinese ? '简' : 'E';
   String get shortMedium => isChinese ? '中' : 'M';
   String get shortHard => isChinese ? '难' : 'H';
@@ -67,9 +71,8 @@ class AppLocalizations {
   String get diceTrayHint => isChinese
       ? '点击骰子可保留该点数。保留的骰子在重掷时不会变化。'
       : 'Tap a die to hold it. Held dice stay put during rerolls.';
-  String rerollsUsed(int used, int max) => isChinese
-      ? '已重掷：$used / $max'
-      : 'Rerolls used: $used / $max';
+  String rerollsUsed(int used, int max) =>
+      isChinese ? '已重掷：$used / $max' : 'Rerolls used: $used / $max';
   String get noRerollsLeft => isChinese ? '本轮无重掷次数' : 'No rerolls left';
   String get rerollDice => isChinese ? '重掷骰子' : 'Reroll Dice';
   String get scoreSheet => isChinese ? '计分表' : 'Score Sheet';
@@ -85,8 +88,7 @@ class AppLocalizations {
   String get scoreSnapshot => isChinese ? '得分概览' : 'Score Snapshot';
   String get upperSectionSubtotal =>
       isChinese ? '上区小计' : 'Upper section subtotal';
-  String get upperSectionBonus =>
-      isChinese ? '上区奖励' : 'Upper section bonus';
+  String get upperSectionBonus => isChinese ? '上区奖励' : 'Upper section bonus';
   String get extraYahtzeeBonus =>
       isChinese ? '额外 Yahtzee 奖励' : 'Extra Yahtzee bonus';
   String get runningTotal => isChinese ? '当前总分' : 'Running total';
@@ -182,9 +184,8 @@ class AppLocalizations {
   String get erase => isChinese ? '擦除' : 'Erase';
   String get cleanSweep => isChinese ? '完美通关！' : 'Clean Sweep!';
   String get puzzleSolved => isChinese ? '谜题已解开' : 'Puzzle Solved';
-  String difficultySolvedIn(String difficulty, String duration) => isChinese
-      ? '$difficulty，用时 $duration'
-      : '$difficulty in $duration';
+  String difficultySolvedIn(String difficulty, String duration) =>
+      isChinese ? '$difficulty，用时 $duration' : '$difficulty in $duration';
   String mistakesChip(int count) => isChinese ? '错误 $count' : 'Mistakes $count';
   String bestTimeChip(String duration) =>
       isChinese ? '最佳 $duration' : 'Best $duration';
@@ -213,6 +214,45 @@ class AppLocalizations {
   String get easy => isChinese ? '简单' : 'Easy';
   String get medium => isChinese ? '中等' : 'Medium';
   String get hard => isChinese ? '困难' : 'Hard';
+  String get target => isChinese ? '目标' : 'Target';
+
+  String get match3Title => isChinese ? '糖块剧场' : 'Match-3 Theatre';
+  String get match3Hint => isChinese
+      ? '依次点选两个相邻糖块完成交换。凑成 3 个以上即可消除并触发连锁。'
+      : 'Tap two neighboring pieces to swap. Match 3 or more to clear and chain cascades.';
+  String get match3Moves => isChinese ? '步数' : 'Moves';
+  String get match3Obstacles => isChinese ? '障碍' : 'Obstacles';
+  String match3ObstaclesLeft(int count) =>
+      isChinese ? '剩余障碍 $count' : '$count obstacles left';
+  String match3Combo(int cascades) =>
+      isChinese ? '$cascades 连锁' : '${cascades}x Combo';
+  String get match3ChooseLevel => isChinese ? '选择关卡' : 'Choose a Level';
+  String match3LevelLabel(int id) => isChinese ? '关卡 $id' : 'Level $id';
+  String get match3Victory => isChinese ? '关卡完成！' : 'Stage Cleared!';
+  String get match3OutOfMoves => isChinese ? '关卡结束' : 'Stage Over';
+  String match3ResultMessage({
+    required bool isNewRecord,
+    required int? previousBest,
+    required bool didWin,
+  }) {
+    if (isNewRecord) {
+      return isChinese
+          ? '这一关刷新了你的最高分。'
+          : 'You set a new high score for this level.';
+    }
+    if (previousBest == null) {
+      return isChinese
+          ? didWin
+                ? '首个通关分数已经保存。'
+                : '首个挑战成绩已经保存。'
+          : didWin
+          ? 'Your first clear score has been saved.'
+          : 'Your first attempt score has been saved.';
+    }
+    return isChinese
+        ? '当前最高分仍然是 $previousBest。'
+        : 'Your best score is still $previousBest.';
+  }
 
   String categoryLabel(String englishLabel) {
     if (!isChinese) {
@@ -242,10 +282,9 @@ class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const AppLocalizationsDelegate();
 
   @override
-  bool isSupported(Locale locale) =>
-      AppLocalizations.supportedLocales.any(
-        (supportedLocale) => supportedLocale.languageCode == locale.languageCode,
-      );
+  bool isSupported(Locale locale) => AppLocalizations.supportedLocales.any(
+    (supportedLocale) => supportedLocale.languageCode == locale.languageCode,
+  );
 
   @override
   Future<AppLocalizations> load(Locale locale) async {

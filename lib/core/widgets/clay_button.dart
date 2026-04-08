@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_shadows.dart';
+import 'clay_container.dart';
 
 class ClayButton extends StatefulWidget {
   const ClayButton({
@@ -37,40 +37,43 @@ class _ClayButtonState extends State<ClayButton> {
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 160),
         opacity: isEnabled ? 1 : 0.55,
-        child: AnimatedContainer(
+        child: AnimatedScale(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOutBack,
-          decoration: BoxDecoration(
-            color: widget.backgroundColor,
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: isEnabled && _pressed
-                ? AppShadows.pressed()
-                : AppShadows.floating(),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(999),
-              onTap: widget.onPressed,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 14,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.icon case final icon?) ...[
-                      Icon(icon, color: widget.foregroundColor, size: 18),
-                      const SizedBox(width: 10),
-                    ],
-                    Text(
-                      widget.label,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: widget.foregroundColor,
+          scale: isEnabled && _pressed ? 0.965 : 1,
+          child: AnimatedSlide(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            offset: isEnabled && _pressed
+                ? const Offset(0, 0.015)
+                : Offset.zero,
+            child: ClayContainer(
+              color: widget.backgroundColor,
+              borderRadius: 999,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              shadowStyle: isEnabled && _pressed
+                  ? ClayShadowStyle.pressed
+                  : ClayShadowStyle.floating,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: widget.onPressed,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.icon case final icon?) ...[
+                        Icon(icon, color: widget.foregroundColor, size: 18),
+                        const SizedBox(width: 10),
+                      ],
+                      Text(
+                        widget.label,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: widget.foregroundColor,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

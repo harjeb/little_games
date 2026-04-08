@@ -87,7 +87,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('Aces'), 400);
     await tester.tap(find.text('Aces'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(milliseconds: 820));
 
     final state = container.read(yahtzeeGameProvider);
     expect(state.session.roundIndex, 2);

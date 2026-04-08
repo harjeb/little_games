@@ -20,6 +20,15 @@ class HomeScreen extends ConsumerWidget {
     final locale = ref.watch(appLocaleProvider);
     final yahtzeeBestScore = ref.watch(bestScoreProvider(GameIds.yahtzee));
     final game2048BestScore = ref.watch(bestScoreProvider(GameIds.game2048));
+    final match3Level1Best = ref.watch(
+      bestScoreProvider(GameIds.match3Level(1)),
+    );
+    final match3Level2Best = ref.watch(
+      bestScoreProvider(GameIds.match3Level(2)),
+    );
+    final match3Level3Best = ref.watch(
+      bestScoreProvider(GameIds.match3Level(3)),
+    );
     final sudokuEasyBest = ref.watch(bestScoreProvider(GameIds.sudokuEasy));
     final sudokuMediumBest = ref.watch(bestScoreProvider(GameIds.sudokuMedium));
     final sudokuHardBest = ref.watch(bestScoreProvider(GameIds.sudokuHard));
@@ -77,8 +86,14 @@ class HomeScreen extends ConsumerWidget {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    _FactChip(label: l10n.androidFirst, color: AppColors.butter),
-                    _FactChip(label: l10n.singlePlayer, color: AppColors.mintCream),
+                    _FactChip(
+                      label: l10n.androidFirst,
+                      color: AppColors.butter,
+                    ),
+                    _FactChip(
+                      label: l10n.singlePlayer,
+                      color: AppColors.mintCream,
+                    ),
                     _FactChip(label: l10n.clayUi, color: AppColors.melon),
                   ],
                 ),
@@ -152,6 +167,22 @@ class HomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           GameCard(
+            title: 'Match-3',
+            description: l10n.match3Description,
+            bestScoreLabel: _formatMatch3Shelf(
+              l10n: l10n,
+              level1: match3Level1Best,
+              level2: match3Level2Best,
+              level3: match3Level3Best,
+            ),
+            accentColor: AppColors.lagoon,
+            playLabel: l10n.playMatch3,
+            icon: Icons.auto_awesome_motion_rounded,
+            onPlay: () =>
+                Navigator.of(context).pushNamed(AppRouter.match3Route),
+          ),
+          const SizedBox(height: 16),
+          GameCard(
             title: 'Sudoku',
             description: l10n.sudokuDescription,
             bestScoreLabel: _formatSudokuShelf(
@@ -188,6 +219,23 @@ class HomeScreen extends ConsumerWidget {
     }
 
     return '${l10n.shortEasy} ${formatRecord(easy)} • ${l10n.shortMedium} ${formatRecord(medium)} • ${l10n.shortHard} ${formatRecord(hard)}';
+  }
+
+  String _formatMatch3Shelf({
+    required AppLocalizations l10n,
+    required AsyncValue<dynamic> level1,
+    required AsyncValue<dynamic> level2,
+    required AsyncValue<dynamic> level3,
+  }) {
+    String formatRecord(AsyncValue<dynamic> value) {
+      return value.when(
+        data: (record) => record == null ? '--' : '${record.score}',
+        error: (_, _) => l10n.unavailable,
+        loading: () => '..',
+      );
+    }
+
+    return 'L1 ${formatRecord(level1)} • L2 ${formatRecord(level2)} • L3 ${formatRecord(level3)}';
   }
 
   String _formatDuration(int totalSeconds) {

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../features/game_2048/presentation/game_2048_result_screen.dart';
 import '../features/game_2048/presentation/game_2048_screen.dart';
 import '../features/home/presentation/home_screen.dart';
+import '../features/match3/domain/match3_level_config.dart';
+import '../features/match3/presentation/match3_result_screen.dart';
+import '../features/match3/presentation/match3_screen.dart';
 import '../features/sudoku/domain/sudoku_difficulty.dart';
 import '../features/sudoku/presentation/sudoku_result_screen.dart';
 import '../features/sudoku/presentation/sudoku_screen.dart';
@@ -15,6 +18,8 @@ final class AppRouter {
   static const String yahtzeeResultRoute = '/yahtzee/result';
   static const String game2048Route = '/game-2048';
   static const String game2048ResultRoute = '/game-2048/result';
+  static const String match3Route = '/match3';
+  static const String match3ResultRoute = '/match3/result';
   static const String sudokuRoute = '/sudoku';
   static const String sudokuResultRoute = '/sudoku/result';
 
@@ -52,6 +57,29 @@ final class AppRouter {
                   finalScore: 0,
                   maxTile: 0,
                   didReach2048: false,
+                ),
+        ),
+        settings: settings,
+      ),
+      match3Route => MaterialPageRoute<void>(
+        builder: (_) => const Match3Screen(),
+        settings: settings,
+      ),
+      match3ResultRoute => MaterialPageRoute<void>(
+        builder: (_) => Match3ResultScreen(
+          result: settings.arguments is Match3ResultData
+              ? settings.arguments! as Match3ResultData
+              : Match3ResultData(
+                  level: const Match3LevelConfig(
+                    id: 1,
+                    name: 'Candy Warmup',
+                    targetScore: 2400,
+                    ruleType: Match3LevelRuleType.moves,
+                    colorCount: 5,
+                    movesLimit: 14,
+                  ),
+                  score: 0,
+                  didWin: false,
                 ),
         ),
         settings: settings,

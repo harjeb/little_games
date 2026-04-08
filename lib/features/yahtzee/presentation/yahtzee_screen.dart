@@ -195,7 +195,10 @@ class _TopSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(context.l10n.yahtzeeRun, style: Theme.of(context).textTheme.displaySmall),
+          Text(
+            context.l10n.yahtzeeRun,
+            style: Theme.of(context).textTheme.displaySmall,
+          ),
           const SizedBox(height: 12),
           Text(
             context.l10n.roundLabel(state.session.roundIndex.clamp(1, 13), 13),
@@ -245,12 +248,10 @@ class _MetricBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
+      child: ClayPanel(
+        backgroundColor: color,
+        borderRadius: 24,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(24),
-        ),
         child: Column(
           children: [
             Text(
@@ -280,7 +281,10 @@ class _ScoreBreakdown extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(context.l10n.scoreSnapshot, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            context.l10n.scoreSnapshot,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 12),
           _ScoreLine(
             label: context.l10n.upperSectionSubtotal,
@@ -309,7 +313,8 @@ class _ScoreBreakdown extends StatelessWidget {
 }
 
 String _localizedError(AppLocalizations l10n, String message) {
-  if (message.startsWith('Category ') && message.endsWith(' has already been used.')) {
+  if (message.startsWith('Category ') &&
+      message.endsWith(' has already been used.')) {
     final categoryName = message
         .replaceFirst('Category ', '')
         .replaceFirst(' has already been used.', '');
@@ -320,8 +325,7 @@ String _localizedError(AppLocalizations l10n, String message) {
   }
 
   return switch (message) {
-    'Cannot toggle hold state after the game is finished.' =>
-      l10n.runComplete,
+    'Cannot toggle hold state after the game is finished.' => l10n.runComplete,
     'Cannot reroll after the game is finished.' => l10n.runComplete,
     'No rerolls remain for the current round.' => l10n.noRerollsLeft,
     'Cannot assign a category after the game is finished.' => l10n.runComplete,

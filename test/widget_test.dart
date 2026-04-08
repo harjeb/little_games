@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,10 +25,14 @@ void main() {
 
     expect(find.text('Pocket Playroom'), findsOneWidget);
     expect(find.text('Yahtzee'), findsOneWidget);
-    expect(find.text('2048'), findsOneWidget);
-    expect(find.text('No record yet'), findsNWidgets(2));
+    expect(find.text('No record yet'), findsOneWidget);
     expect(find.text('Play Yahtzee'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('2048'), 250);
+    expect(find.text('2048'), findsOneWidget);
     expect(find.text('Play 2048'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Match-3'), 250);
+    expect(find.text('Match-3'), findsOneWidget);
+    expect(find.text('Play Match-3'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Sudoku'), 300);
     expect(find.text('Sudoku'), findsOneWidget);
     expect(find.text('Play Sudoku'), findsOneWidget);

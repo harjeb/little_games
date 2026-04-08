@@ -4,36 +4,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/localization/app_localizations.dart';
 import '../../../app/router.dart';
 import '../../../app/theme/app_colors.dart';
-import '../../../core/constants/game_ids.dart';
 import '../../../core/widgets/clay_button.dart';
 import '../../../core/widgets/clay_panel.dart';
 import '../../../core/widgets/clay_scaffold.dart';
 import '../../leaderboard/domain/best_score_record.dart';
 import '../../leaderboard/leaderboard_providers.dart';
+import '../domain/match3_level_config.dart';
 
-class Game2048ResultData {
-  const Game2048ResultData({
-    required this.finalScore,
-    required this.maxTile,
-    required this.didReach2048,
+class Match3ResultData {
+  const Match3ResultData({
+    required this.level,
+    required this.score,
+    required this.didWin,
   });
 
-  final int finalScore;
-  final int maxTile;
-  final bool didReach2048;
+  final Match3LevelConfig level;
+  final int score;
+  final bool didWin;
 }
 
-class Game2048ResultScreen extends ConsumerStatefulWidget {
-  const Game2048ResultScreen({super.key, required this.result});
+class Match3ResultScreen extends ConsumerStatefulWidget {
+  const Match3ResultScreen({super.key, required this.result});
 
-  final Game2048ResultData result;
+  final Match3ResultData result;
 
   @override
-  ConsumerState<Game2048ResultScreen> createState() =>
-      _Game2048ResultScreenState();
+  ConsumerState<Match3ResultScreen> createState() => _Match3ResultScreenState();
 }
 
-class _Game2048ResultScreenState extends ConsumerState<Game2048ResultScreen> {
+class _Match3ResultScreenState extends ConsumerState<Match3ResultScreen> {
   bool _loading = true;
   bool _isNewRecord = false;
   BestScoreRecord? _previousBest;
@@ -47,20 +46,21 @@ class _Game2048ResultScreenState extends ConsumerState<Game2048ResultScreen> {
 
   Future<void> _submitResult() async {
     final repository = ref.read(leaderboardRepositoryProvider);
-    final previousBest = await repository.getBestScore(GameIds.game2048);
+    final gameId = widget.result.level.gameId;
+    final previousBest = await repository.getBestScore(gameId);
     final isNewRecord =
-        previousBest == null || widget.result.finalScore > previousBest.score;
+        previousBest == null || widget.result.score > previousBest.score;
 
     if (isNewRecord) {
       await repository.submitScore(
-        GameIds.game2048,
-        widget.result.finalScore,
+        gameId,
+        widget.result.score,
         DateTime.now().toUtc(),
       );
     }
 
-    final updatedBest = await repository.getBestScore(GameIds.game2048);
-    ref.invalidate(bestScoreProvider(GameIds.game2048));
+    final currentBest = await repository.getBestScore(gameId);
+    ref.invalidate(bestScoreProvider(gameId));
 
     if (!mounted) {
       return;
@@ -70,7 +70,7 @@ class _Game2048ResultScreenState extends ConsumerState<Game2048ResultScreen> {
       _loading = false;
       _isNewRecord = isNewRecord;
       _previousBest = previousBest;
-      _currentBest = updatedBest;
+      _currentBest = currentBest;
     });
   }
 
@@ -83,7 +83,7 @@ class _Game2048ResultScreenState extends ConsumerState<Game2048ResultScreen> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: ClayPanel(
-            backgroundColor: AppColors.white.withValues(alpha: 0.94),
+            backgroundColor: AppColors.white.withValues(alpha: 0.95),
             child: _loading
                 ? const Padding(
                     padding: EdgeInsets.symmetric(vertical: 48),
@@ -94,16 +94,16 @@ class _Game2048ResultScreenState extends ConsumerState<Game2048ResultScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.result.didReach2048
-                            ? l10n.reached2048
-                            : l10n.boardLocked,
+                        widget.result.didWin
+                            ? l10n.match3Victory
+                            : l10n.match3OutOfMoves,
                         style: Theme.of(context).textTheme.displaySmall,
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        l10n.finalScoreLabel(widget.result.finalScore),
+                        l10n.match3LevelLabel(widget.result.level.id),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppColors.blueberry,
+                          color: AppColors.coral,
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -112,12 +112,12 @@ class _Game2048ResultScreenState extends ConsumerState<Game2048ResultScreen> {
                         runSpacing: 10,
                         children: [
                           _ResultChip(
-                            label: l10n.maxTileChip(widget.result.maxTile),
+                            label: l10n.finalScoreLabel(widget.result.score),
                             color: AppColors.butter,
                           ),
                           _ResultChip(
                             label: l10n.bestChip(
-                              _currentBest?.score ?? widget.result.finalScore,
+                              _currentBest?.score ?? widget.result.score,
                             ),
                             color: AppColors.mintCream,
                           ),
@@ -131,9 +131,10 @@ class _Game2048ResultScreenState extends ConsumerState<Game2048ResultScreen> {
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        l10n.game2048ResultMessage(
+                        l10n.match3ResultMessage(
                           isNewRecord: _isNewRecord,
                           previousBest: _previousBest?.score,
+                          didWin: widget.result.didWin,
                         ),
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: AppColors.mutedInk,
@@ -149,8 +150,8 @@ class _Game2048ResultScreenState extends ConsumerState<Game2048ResultScreen> {
                             icon: Icons.replay_rounded,
                             onPressed: () => Navigator.of(
                               context,
-                            ).pushReplacementNamed(AppRouter.game2048Route),
-                            backgroundColor: AppColors.blueberry,
+                            ).pushReplacementNamed(AppRouter.match3Route),
+                            backgroundColor: AppColors.coral,
                             foregroundColor: AppColors.white,
                           ),
                           ClayButton(

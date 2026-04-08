@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
-import '../../../../app/theme/app_shadows.dart';
+import '../../../../core/widgets/clay_container.dart';
 
 class ClayDie extends StatelessWidget {
   const ClayDie({
@@ -25,37 +25,74 @@ class ClayDie extends StatelessWidget {
       duration: const Duration(milliseconds: 180),
       width: size,
       height: size,
-      decoration: BoxDecoration(
+      child: ClayContainer(
         color: held ? AppColors.coral : AppColors.white.withValues(alpha: 0.98),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: isRolling ? AppShadows.pressed() : AppShadows.floating(),
-      ),
-      child: Stack(
-        children: [
-          if (held)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                width: 16,
-                height: 16,
-                decoration: const BoxDecoration(
+        borderRadius: 22,
+        padding: const EdgeInsets.all(12),
+        depth: held ? 1.12 : 1,
+        shadowStyle: held || isRolling
+            ? ClayShadowStyle.pressed
+            : ClayShadowStyle.floating,
+        child: Stack(
+          children: [
+            if (held)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: ClayContainer(
                   color: AppColors.butter,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.push_pin_rounded,
-                  size: 10,
-                  color: AppColors.ink,
+                  borderRadius: 999,
+                  padding: const EdgeInsets.all(4),
+                  shadowStyle: ClayShadowStyle.flat,
+                  child: const Icon(
+                    Icons.push_pin_rounded,
+                    size: 10,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: _PipLayout(value: value, pipColor: pipColor),
+            _PipLayout(value: value, pipColor: pipColor),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PipDot extends StatelessWidget {
+  const _PipDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          center: const Alignment(-0.35, -0.35),
+          radius: 1.05,
+          colors: <Color>[
+            Color.lerp(color, Colors.white, 0.22) ?? color,
+            color,
+            Color.lerp(color, Colors.black, 0.15) ?? color,
+          ],
+          stops: const <double>[0, 0.55, 1],
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.22),
+            blurRadius: 2,
+            offset: const Offset(-1.2, -1.2),
+          ),
+          BoxShadow(
+            color: AppColors.shadow.withValues(alpha: 0.18),
+            blurRadius: 3,
+            offset: const Offset(1.4, 1.4),
           ),
         ],
       ),
+      child: const SizedBox(width: 10, height: 10),
     );
   }
 }
@@ -100,13 +137,7 @@ class _PipLayout extends StatelessWidget {
         for (final alignment in positions)
           Align(
             alignment: alignment,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: pipColor,
-                shape: BoxShape.circle,
-              ),
-              child: const SizedBox(width: 10, height: 10),
-            ),
+            child: _PipDot(color: pipColor),
           ),
       ],
     );
