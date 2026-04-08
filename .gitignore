@@ -2,3 +2,31 @@
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Flutter and Dart tool output
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+build/
+
+# IDE and local machine files
+.idea/
+*.iml
+.metadata
+.tmp/
+
+# Android and Gradle local output
+android/.gradle/
+android/local.properties
+android/key.properties
+*.jks
+*.keystore
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+credentials.json
