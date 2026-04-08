@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_shadows.dart';
 import '../../../../core/widgets/clay_button.dart';
+import '../../../../core/widgets/clay_container.dart';
 import '../../../../core/widgets/clay_panel.dart';
 
 class GameCard extends StatelessWidget {
@@ -35,14 +37,17 @@ class GameCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  borderRadius: BorderRadius.circular(20),
+              ClayContainer(
+                color: accentColor,
+                borderRadius: 20,
+                padding: EdgeInsets.zero,
+                shadowStyle: ClayShadowStyle.flat,
+                depth: 0.82,
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Icon(icon, color: AppColors.white, size: 28),
                 ),
-                child: Icon(icon, color: AppColors.white, size: 28),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -61,13 +66,11 @@ class GameCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          Container(
-            width: double.infinity,
+          ClayContainer(
+            color: AppColors.sky,
+            borderRadius: 22,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.sky,
-              borderRadius: BorderRadius.circular(22),
-            ),
+            shadowStyle: ClayShadowStyle.inset,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_shadows.dart';
+import 'clay_container.dart';
 
 class ClayPanel extends StatelessWidget {
   const ClayPanel({
@@ -19,13 +20,12 @@ class ClayPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: AppShadows.floating(),
-      ),
-      child: Padding(padding: padding, child: child),
+    return ClayContainer(
+      color: backgroundColor,
+      borderRadius: borderRadius,
+      padding: padding,
+      shadowStyle: ClayShadowStyle.floating,
+      child: child,
     );
   }
 }

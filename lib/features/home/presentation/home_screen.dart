@@ -5,7 +5,9 @@ import '../../../app/localization/app_locale_controller.dart';
 import '../../../app/localization/app_localizations.dart';
 import '../../../app/router.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/app_shadows.dart';
 import '../../../core/constants/game_ids.dart';
+import '../../../core/widgets/clay_container.dart';
 import '../../../core/widgets/clay_panel.dart';
 import '../../../core/widgets/clay_scaffold.dart';
 import '../../leaderboard/leaderboard_providers.dart';
@@ -205,12 +207,12 @@ class _FactChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ClayContainer(
+      color: color,
+      borderRadius: 999,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(999),
-      ),
+      shadowStyle: ClayShadowStyle.flat,
+      depth: 0.74,
       child: Text(
         label,
         style: Theme.of(
