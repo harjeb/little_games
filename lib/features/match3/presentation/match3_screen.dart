@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +9,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/widgets/clay_button.dart';
 import '../../../core/widgets/clay_panel.dart';
 import '../../../core/widgets/clay_scaffold.dart';
+import '../domain/match3_grid.dart';
 import '../domain/match3_level_config.dart';
 import '../domain/match3_piece.dart';
 import 'controllers/match3_controller.dart';
@@ -262,17 +265,31 @@ class _ChipBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: Theme.of(
-          context,
-        ).textTheme.labelLarge?.copyWith(color: AppColors.white),
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutBack,
+      tween: Tween<double>(begin: 0.86, end: 1),
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: lerpDouble(0.55, 1, value)!,
+          child: Transform.translate(
+            offset: Offset(0, lerpDouble(10, 0, value)!),
+            child: Transform.scale(scale: value, child: child),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          text,
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: AppColors.white),
+        ),
       ),
     );
   }
@@ -381,12 +398,51 @@ class _Match3Board extends StatefulWidget {
   State<_Match3Board> createState() => _Match3BoardState();
 }
 
-class _Match3BoardState extends State<_Match3Board> {
+class _Match3BoardState extends State<_Match3Board>
+    with SingleTickerProviderStateMixin {
   static const double _dragThreshold = 20;
 
   (int row, int col)? _dragOrigin;
   Offset _dragDelta = Offset.zero;
   bool _dragTriggered = false;
+  late final AnimationController _boardFxController;
+  Map<int, (int row, int col)> _previousPositions = <int, (int row, int col)>{};
+  Set<int> _animatedPieceIds = <int>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _boardFxController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+      value: 1,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _Match3Board oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_gridSignature(oldWidget.state.grid) ==
+        _gridSignature(widget.state.grid)) {
+      return;
+    }
+
+    _previousPositions = _positionsById(oldWidget.state.grid);
+    final nextPositions = _positionsById(widget.state.grid);
+    _animatedPieceIds = {
+      for (final entry in nextPositions.entries)
+        if (!_previousPositions.containsKey(entry.key) ||
+            _previousPositions[entry.key] != entry.value)
+          entry.key,
+    };
+    _boardFxController.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _boardFxController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -443,7 +499,51 @@ class _Match3BoardState extends State<_Match3Board> {
                 ),
                 child: piece == null
                     ? const SizedBox.shrink()
-                    : _PieceFace(piece: piece),
+                    : AnimatedBuilder(
+                        animation: _boardFxController,
+                        builder: (context, child) {
+                          final progress = _pieceAnimationProgress(piece.id);
+                          final previous = _previousPositions[piece.id];
+                          final rowDelta = previous == null
+                              ? -1
+                              : previous.$1 - row;
+                          final columnDelta = previous == null
+                              ? 0
+                              : previous.$2 - col;
+                          final yOffset = lerpDouble(
+                            rowDelta == 0 ? 0 : rowDelta * 12,
+                            0,
+                            progress,
+                          )!;
+                          final xOffset = lerpDouble(
+                            columnDelta == 0 ? 0 : columnDelta * 8,
+                            0,
+                            progress,
+                          )!;
+
+                          return Opacity(
+                            opacity: lerpDouble(
+                              _animatedPieceIds.contains(piece.id) ? 0.35 : 1,
+                              1,
+                              progress,
+                            )!,
+                            child: Transform.translate(
+                              offset: Offset(xOffset, yOffset),
+                              child: Transform.scale(
+                                scale: lerpDouble(
+                                  _animatedPieceIds.contains(piece.id)
+                                      ? 0.88
+                                      : 1,
+                                  1,
+                                  progress,
+                                )!,
+                                child: child,
+                              ),
+                            ),
+                          );
+                        },
+                        child: _PieceFace(piece: piece),
+                      ),
               ),
             ),
           );
@@ -489,6 +589,37 @@ class _Match3BoardState extends State<_Match3Board> {
 
   void _cancelDrag() {
     _endDrag();
+  }
+
+  double _pieceAnimationProgress(int pieceId) {
+    if (!_animatedPieceIds.contains(pieceId)) {
+      return 1;
+    }
+    return Curves.easeOutBack.transform(_boardFxController.value.clamp(0, 1));
+  }
+
+  Map<int, (int row, int col)> _positionsById(Match3Grid grid) {
+    final positions = <int, (int row, int col)>{};
+    for (var row = 0; row < grid.height; row++) {
+      for (var col = 0; col < grid.width; col++) {
+        final piece = grid.pieceAt(row, col);
+        if (piece != null) {
+          positions[piece.id] = (row, col);
+        }
+      }
+    }
+    return positions;
+  }
+
+  String _gridSignature(Match3Grid grid) {
+    final parts = <String>[];
+    for (var row = 0; row < grid.height; row++) {
+      for (var col = 0; col < grid.width; col++) {
+        final piece = grid.pieceAt(row, col);
+        parts.add(piece == null ? '_' : '${piece.id}:${piece.type.name}');
+      }
+    }
+    return parts.join('|');
   }
 }
 

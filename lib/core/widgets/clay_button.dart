@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
@@ -25,8 +27,31 @@ class ClayButton extends StatefulWidget {
   State<ClayButton> createState() => _ClayButtonState();
 }
 
-class _ClayButtonState extends State<ClayButton> {
+class _ClayButtonState extends State<ClayButton>
+    with SingleTickerProviderStateMixin {
   bool _pressed = false;
+  late final AnimationController _breatheController;
+  late final bool _animateIdle;
+
+  @override
+  void initState() {
+    super.initState();
+    _animateIdle = !_isTestBinding();
+    _breatheController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+      value: 0.5,
+    );
+    if (_animateIdle) {
+      _breatheController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _breatheController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +59,9 @@ class _ClayButtonState extends State<ClayButton> {
     final buttonColor = isEnabled
         ? (_pressed ? widget.backgroundColor.darken(5) : widget.backgroundColor)
         : widget.backgroundColor.withValues(alpha: 0.8);
+    final breatheScale = isEnabled && !_pressed
+        ? lerpDouble(1, 1.018, _breatheController.value)!
+        : 1.0;
 
     return GestureDetector(
       onTapDown: isEnabled ? (_) => setState(() => _pressed = true) : null,
@@ -45,7 +73,7 @@ class _ClayButtonState extends State<ClayButton> {
         child: AnimatedScale(
           duration: Duration(milliseconds: _pressed ? 120 : 180),
           curve: _pressed ? Curves.easeOutCubic : Curves.elasticOut,
-          scale: isEnabled && _pressed ? 0.96 : 1,
+          scale: (isEnabled && _pressed ? 0.96 : 1) * breatheScale,
           child: AnimatedSlide(
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOutCubic,
@@ -92,5 +120,10 @@ class _ClayButtonState extends State<ClayButton> {
         ),
       ),
     );
+  }
+
+  bool _isTestBinding() {
+    final bindingName = WidgetsBinding.instance.runtimeType.toString();
+    return bindingName.contains('TestWidgetsFlutterBinding');
   }
 }

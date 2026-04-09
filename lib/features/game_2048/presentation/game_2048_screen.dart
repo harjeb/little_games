@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,14 +13,50 @@ import '../../../core/widgets/clay_scaffold.dart';
 import '../../leaderboard/leaderboard_providers.dart';
 import '../domain/board.dart';
 import 'controllers/game_2048_controller.dart';
+import 'controllers/game_2048_state.dart';
 import 'game_2048_result_screen.dart';
 import 'widgets/animated_tile_board.dart';
 
-class Game2048Screen extends ConsumerWidget {
+class Game2048Screen extends ConsumerStatefulWidget {
   const Game2048Screen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<Game2048Screen> createState() => _Game2048ScreenState();
+}
+
+class _Game2048ScreenState extends ConsumerState<Game2048Screen>
+    with SingleTickerProviderStateMixin {
+  ProviderSubscription<Game2048State>? _subscription;
+  late final AnimationController _lossOverlayController;
+
+  @override
+  void initState() {
+    super.initState();
+    _lossOverlayController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 820),
+    );
+    _subscription = ref.listenManual<Game2048State>(
+      game2048ControllerProvider,
+      (previous, next) {
+        if (previous?.showLossOverlay == false && next.showLossOverlay) {
+          _lossOverlayController.forward(from: 0);
+        } else if (previous?.showLossOverlay == true && !next.showLossOverlay) {
+          _lossOverlayController.value = 0;
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _subscription?.close();
+    _lossOverlayController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
     final state = ref.watch(game2048ControllerProvider);
     final controller = ref.read(game2048ControllerProvider.notifier);
@@ -84,11 +122,19 @@ class Game2048Screen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      AnimatedTileBoard(
-                        board: state.board,
-                        enabled:
-                            !state.showLossOverlay && !state.showWinOverlay,
-                        onSlide: controller.slide,
+                      AnimatedBuilder(
+                        animation: _lossOverlayController,
+                        builder: (context, child) {
+                          return AnimatedTileBoard(
+                            board: state.board,
+                            enabled:
+                                !state.showLossOverlay && !state.showWinOverlay,
+                            gameOverProgress: state.showLossOverlay
+                                ? _lossOverlayController.value
+                                : 0,
+                            onSlide: controller.slide,
+                          );
+                        },
                       ),
                       const SizedBox(height: 18),
                       Wrap(
@@ -120,70 +166,18 @@ class Game2048Screen extends ConsumerWidget {
             ),
             if (state.showWinOverlay || state.showLossOverlay)
               Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.ink.withValues(alpha: 0.2),
-                  ),
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: ClayPanel(
-                        backgroundColor: AppColors.white.withValues(
-                          alpha: 0.97,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              state.showWinOverlay
-                                  ? l10n.hit2048
-                                  : l10n.noMovesLeft,
-                              style: Theme.of(context).textTheme.displaySmall,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              state.showWinOverlay
-                                  ? l10n.hit2048Hint
-                                  : l10n.noMovesLeftHint,
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(color: AppColors.mutedInk),
-                            ),
-                            const SizedBox(height: 18),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: [
-                                if (state.showWinOverlay)
-                                  ClayButton(
-                                    label: l10n.keepGoing,
-                                    icon: Icons.trending_up_rounded,
-                                    onPressed: controller.continueAfterWin,
-                                    backgroundColor: AppColors.blueberry,
-                                    foregroundColor: AppColors.white,
-                                  ),
-                                ClayButton(
-                                  label: l10n.saveResult,
-                                  icon: Icons.emoji_events_rounded,
-                                  onPressed: () =>
-                                      _finishRun(context, state.board),
-                                  backgroundColor: AppColors.coral,
-                                  foregroundColor: AppColors.white,
-                                ),
-                                ClayButton(
-                                  label: l10n.newBoard,
-                                  icon: Icons.refresh_rounded,
-                                  onPressed: controller.newGame,
-                                  backgroundColor: AppColors.white,
-                                  foregroundColor: AppColors.ink,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                child: _GameOverlay(
+                  title: state.showWinOverlay ? l10n.hit2048 : l10n.noMovesLeft,
+                  message: state.showWinOverlay
+                      ? l10n.hit2048Hint
+                      : l10n.noMovesLeftHint,
+                  isLoss: state.showLossOverlay,
+                  animation: _lossOverlayController,
+                  onKeepGoing: state.showWinOverlay
+                      ? controller.continueAfterWin
+                      : null,
+                  onSaveResult: () => _finishRun(context, state.board),
+                  onNewBoard: controller.newGame,
                 ),
               ),
           ],
@@ -199,6 +193,108 @@ class Game2048Screen extends ConsumerWidget {
         finalScore: board.score,
         maxTile: board.maxTileValue,
         didReach2048: board.maxTileValue >= 2048,
+      ),
+    );
+  }
+}
+
+class _GameOverlay extends StatelessWidget {
+  const _GameOverlay({
+    required this.title,
+    required this.message,
+    required this.isLoss,
+    required this.animation,
+    required this.onSaveResult,
+    required this.onNewBoard,
+    this.onKeepGoing,
+  });
+
+  final String title;
+  final String message;
+  final bool isLoss;
+  final Animation<double> animation;
+  final VoidCallback? onKeepGoing;
+  final VoidCallback onSaveResult;
+  final VoidCallback onNewBoard;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = isLoss ? animation.value : 1.0;
+    final overlayAlpha = isLoss ? lerpDouble(0.08, 0.26, progress)! : 0.2;
+    final blurSigma = isLoss ? lerpDouble(0, 10, progress)! : 4.0;
+    final cardScale = isLoss
+        ? lerpDouble(0.92, 1, Curves.easeOutBack.transform(progress))!
+        : 1.0;
+    final cardOffset = isLoss
+        ? lerpDouble(26, 0, Curves.easeOutCubic.transform(progress))!
+        : 0.0;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.ink.withValues(alpha: overlayAlpha),
+      ),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        child: Center(
+          child: Transform.translate(
+            offset: Offset(0, cardOffset),
+            child: Transform.scale(
+              scale: cardScale,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: ClayPanel(
+                  backgroundColor: AppColors.white.withValues(alpha: 0.97),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.displaySmall,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        message,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: AppColors.mutedInk,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          if (onKeepGoing != null)
+                            ClayButton(
+                              label: context.l10n.keepGoing,
+                              icon: Icons.trending_up_rounded,
+                              onPressed: onKeepGoing,
+                              backgroundColor: AppColors.blueberry,
+                              foregroundColor: AppColors.white,
+                            ),
+                          ClayButton(
+                            label: context.l10n.saveResult,
+                            icon: Icons.emoji_events_rounded,
+                            onPressed: onSaveResult,
+                            backgroundColor: AppColors.coral,
+                            foregroundColor: AppColors.white,
+                          ),
+                          ClayButton(
+                            label: context.l10n.newBoard,
+                            icon: Icons.refresh_rounded,
+                            onPressed: onNewBoard,
+                            backgroundColor: AppColors.white,
+                            foregroundColor: AppColors.ink,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -14,11 +14,13 @@ class AnimatedTileBoard extends StatefulWidget {
     required this.board,
     required this.onSlide,
     this.enabled = true,
+    this.gameOverProgress = 0,
   });
 
   final Board board;
   final ValueChanged<SlideDirection> onSlide;
   final bool enabled;
+  final double gameOverProgress;
 
   @override
   State<AnimatedTileBoard> createState() => _AnimatedTileBoardState();
@@ -108,6 +110,7 @@ class _AnimatedTileBoardState extends State<AnimatedTileBoard>
                                 ),
                                 cellSize: cellSize,
                                 gap: _gap,
+                                gameOverProgress: widget.gameOverProgress,
                               ),
                           ],
                         );
@@ -254,12 +257,14 @@ class _AnimatedTile extends StatelessWidget {
     required this.progress,
     required this.cellSize,
     required this.gap,
+    required this.gameOverProgress,
   });
 
   final _TileMotion motion;
   final double progress;
   final double cellSize;
   final double gap;
+  final double gameOverProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +285,8 @@ class _AnimatedTile extends StatelessWidget {
     final spawnPulse = motion.isNew
         ? _pulse(progress, start: 0, peak: 1.08, beginScale: 0.2)
         : 1.0;
-    final textColor = motion.tile.value >= 8 ? AppColors.white : AppColors.ink;
+    final tileColor = _animatedTileColor(motion.tile.value);
+    final textColor = _animatedTextColor(motion.tile.value);
 
     return Positioned(
       left: left,
@@ -293,20 +299,23 @@ class _AnimatedTile extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: <Color>[
-                Color.lerp(_tileColor(motion.tile.value), Colors.white, 0.18) ??
-                    _tileColor(motion.tile.value),
-                _tileColor(motion.tile.value),
+                Color.lerp(tileColor, Colors.white, 0.18) ?? tileColor,
+                tileColor,
               ],
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: AppColors.shadow.withValues(alpha: 0.12),
+                color: AppColors.shadow.withValues(
+                  alpha: lerpDouble(0.12, 0.04, _waveProgress)!,
+                ),
                 blurRadius: 10,
                 offset: const Offset(4, 6),
               ),
               BoxShadow(
-                color: Colors.white.withValues(alpha: 0.22),
+                color: Colors.white.withValues(
+                  alpha: lerpDouble(0.22, 0.08, _waveProgress)!,
+                ),
                 blurRadius: 5,
                 offset: const Offset(-2, -2),
               ),
@@ -315,11 +324,14 @@ class _AnimatedTile extends StatelessWidget {
           child: SizedBox.square(
             dimension: cellSize,
             child: Center(
-              child: Text(
-                '${motion.tile.value}',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  color: textColor,
-                  fontSize: motion.tile.value >= 1024 ? 28 : 34,
+              child: Opacity(
+                opacity: lerpDouble(1, 0.38, _waveProgress)!,
+                child: Text(
+                  '${motion.tile.value}',
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    color: textColor,
+                    fontSize: motion.tile.value >= 1024 ? 28 : 34,
+                  ),
                 ),
               ),
             ),
@@ -343,6 +355,33 @@ class _AnimatedTile extends StatelessWidget {
         .toDouble();
     final rise = Curves.easeOutBack.transform(normalized);
     return lerpDouble(beginScale, peak, rise)!;
+  }
+
+  double get _waveProgress {
+    if (gameOverProgress <= 0) {
+      return 0;
+    }
+
+    final waveIndex = motion.tile.row + motion.tile.col;
+    final start = (waveIndex / 6) * 0.42;
+    final normalized = ((gameOverProgress - start) / 0.45).clamp(0, 1);
+    return Curves.easeInOut.transform(normalized.toDouble());
+  }
+
+  Color _animatedTileColor(int value) {
+    final base = _tileColor(value);
+    final gray = Color.lerp(base, Colors.grey.shade500, 0.84) ?? base;
+    return Color.lerp(base, gray, _waveProgress) ?? base;
+  }
+
+  Color _animatedTextColor(int value) {
+    final base = value >= 8 ? AppColors.white : AppColors.ink;
+    return Color.lerp(
+          base,
+          AppColors.white.withValues(alpha: 0.8),
+          _waveProgress,
+        ) ??
+        base;
   }
 
   Color _tileColor(int value) {

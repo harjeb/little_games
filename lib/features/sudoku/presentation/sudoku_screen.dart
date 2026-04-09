@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,24 +21,40 @@ class SudokuScreen extends ConsumerStatefulWidget {
   ConsumerState<SudokuScreen> createState() => _SudokuScreenState();
 }
 
-class _SudokuScreenState extends ConsumerState<SudokuScreen> {
+class _SudokuScreenState extends ConsumerState<SudokuScreen>
+    with SingleTickerProviderStateMixin {
   ProviderSubscription<SudokuState>? _stateSubscription;
+  late final AnimationController _completionController;
+  bool _navigatingAway = false;
 
   @override
   void initState() {
     super.initState();
+    _completionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 860),
+    );
     _stateSubscription = ref.listenManual<SudokuState>(
       sudokuControllerProvider,
       (previous, next) {
-        if (previous?.isComplete == false && next.isComplete) {
-          Navigator.of(context).pushReplacementNamed(
-            AppRouter.sudokuResultRoute,
-            arguments: SudokuResultData(
-              difficulty: next.difficulty,
-              elapsedSeconds: next.elapsedSeconds,
-              mistakes: next.mistakes,
-            ),
-          );
+        if (!_navigatingAway &&
+            previous?.isComplete == false &&
+            next.isComplete) {
+          _navigatingAway = true;
+          _completionController.forward(from: 0);
+          Future<void>.delayed(const Duration(milliseconds: 860), () {
+            if (!mounted) {
+              return;
+            }
+            Navigator.of(context).pushReplacementNamed(
+              AppRouter.sudokuResultRoute,
+              arguments: SudokuResultData(
+                difficulty: next.difficulty,
+                elapsedSeconds: next.elapsedSeconds,
+                mistakes: next.mistakes,
+              ),
+            );
+          });
         }
       },
     );
@@ -45,6 +63,7 @@ class _SudokuScreenState extends ConsumerState<SudokuScreen> {
   @override
   void dispose() {
     _stateSubscription?.close();
+    _completionController.dispose();
     super.dispose();
   }
 
@@ -126,6 +145,7 @@ class _SudokuScreenState extends ConsumerState<SudokuScreen> {
                     child: _SudokuGrid(
                       state: state,
                       onCellTap: controller.selectCell,
+                      completionProgress: _completionController.value,
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -207,10 +227,15 @@ class _StatCard extends StatelessWidget {
 }
 
 class _SudokuGrid extends StatelessWidget {
-  const _SudokuGrid({required this.state, required this.onCellTap});
+  const _SudokuGrid({
+    required this.state,
+    required this.onCellTap,
+    required this.completionProgress,
+  });
 
   final SudokuState state;
   final ValueChanged<int> onCellTap;
+  final double completionProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -233,54 +258,76 @@ class _SudokuGrid extends StatelessWidget {
           final isError = state.lastErrorIndex == index;
           final isRelated = state.isRelatedToSelected(index);
           final sharesSelectedValue = state.sharesValueWithSelected(index);
+          final celebration = _celebrationProgress(index);
 
           return GestureDetector(
             onTap: () => onCellTap(index),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                color: isError
-                    ? AppColors.coral.withValues(alpha: 0.22)
-                    : isSelected
-                    ? AppColors.lagoon.withValues(alpha: 0.2)
-                    : sharesSelectedValue
-                    ? AppColors.butter.withValues(alpha: 0.3)
-                    : isRelated
-                    ? AppColors.sky.withValues(alpha: 0.72)
-                    : cell.isClue
-                    ? AppColors.sky
-                    : AppColors.white,
-                border: Border(
-                  top: BorderSide(width: row % 3 == 0 ? 2.4 : 0.8),
-                  left: BorderSide(width: col % 3 == 0 ? 2.4 : 0.8),
-                  right: BorderSide(width: col == 8 ? 2.4 : 0.8),
-                  bottom: BorderSide(width: row == 8 ? 2.4 : 0.8),
+            child: Transform.scale(
+              scale: lerpDouble(1, 1.08, celebration)!,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  color: isError
+                      ? AppColors.coral.withValues(alpha: 0.22)
+                      : celebration > 0
+                      ? Color.lerp(
+                          AppColors.white,
+                          AppColors.butter.withValues(alpha: 0.84),
+                          celebration,
+                        )
+                      : isSelected
+                      ? AppColors.lagoon.withValues(alpha: 0.2)
+                      : sharesSelectedValue
+                      ? AppColors.butter.withValues(alpha: 0.3)
+                      : isRelated
+                      ? AppColors.sky.withValues(alpha: 0.72)
+                      : cell.isClue
+                      ? AppColors.sky
+                      : AppColors.white,
+                  border: Border(
+                    top: BorderSide(width: row % 3 == 0 ? 2.4 : 0.8),
+                    left: BorderSide(width: col % 3 == 0 ? 2.4 : 0.8),
+                    right: BorderSide(width: col == 8 ? 2.4 : 0.8),
+                    bottom: BorderSide(width: row == 8 ? 2.4 : 0.8),
+                  ),
                 ),
-              ),
-              child: Center(
-                child: cell.value == null
-                    ? _NoteMatrix(notes: cell.notes)
-                    : Text(
-                        '${cell.value}',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              fontWeight: cell.isClue
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: isError
-                                  ? AppColors.coral
-                                  : cell.isClue
-                                  ? AppColors.ink
-                                  : AppColors.blueberry,
-                            ),
-                      ),
+                child: Center(
+                  child: cell.value == null
+                      ? _NoteMatrix(notes: cell.notes)
+                      : Text(
+                          '${cell.value}',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: cell.isClue
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isError
+                                    ? AppColors.coral
+                                    : cell.isClue
+                                    ? AppColors.ink
+                                    : AppColors.blueberry,
+                              ),
+                        ),
+                ),
               ),
             ),
           );
         },
       ),
     );
+  }
+
+  double _celebrationProgress(int index) {
+    if (completionProgress <= 0) {
+      return 0;
+    }
+
+    final row = index ~/ 9;
+    final col = index % 9;
+    final start = ((row + col) / 16) * 0.58;
+    final normalized = ((completionProgress - start) / 0.28).clamp(0, 1);
+    return Curves.easeOutBack.transform(normalized.toDouble());
   }
 }
 
