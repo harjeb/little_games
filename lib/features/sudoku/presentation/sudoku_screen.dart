@@ -130,8 +130,10 @@ class _SudokuScreenState extends ConsumerState<SudokuScreen> {
                   ),
                   const SizedBox(height: 18),
                   _NumberPad(
+                    state: state,
                     onDigitPressed: controller.placeDigit,
                     onErasePressed: controller.eraseSelected,
+                    onNotesTogglePressed: controller.toggleNoteMode,
                   ),
                   const SizedBox(height: 18),
                   Wrap(
@@ -229,15 +231,23 @@ class _SudokuGrid extends StatelessWidget {
           final cell = state.cellAt(row, col);
           final isSelected = state.selectedIndex == index;
           final isError = state.lastErrorIndex == index;
+          final isRelated = state.isRelatedToSelected(index);
+          final sharesSelectedValue = state.sharesValueWithSelected(index);
 
           return GestureDetector(
             onTap: () => onCellTap(index),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
               decoration: BoxDecoration(
                 color: isError
                     ? AppColors.coral.withValues(alpha: 0.22)
                     : isSelected
                     ? AppColors.lagoon.withValues(alpha: 0.2)
+                    : sharesSelectedValue
+                    ? AppColors.butter.withValues(alpha: 0.3)
+                    : isRelated
+                    ? AppColors.sky.withValues(alpha: 0.72)
                     : cell.isClue
                     ? AppColors.sky
                     : AppColors.white,
@@ -249,17 +259,22 @@ class _SudokuGrid extends StatelessWidget {
                 ),
               ),
               child: Center(
-                child: Text(
-                  cell.value?.toString() ?? '',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: cell.isClue ? FontWeight.w700 : FontWeight.w500,
-                    color: isError
-                        ? AppColors.coral
-                        : cell.isClue
-                        ? AppColors.ink
-                        : AppColors.blueberry,
-                  ),
-                ),
+                child: cell.value == null
+                    ? _NoteMatrix(notes: cell.notes)
+                    : Text(
+                        '${cell.value}',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: cell.isClue
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isError
+                                  ? AppColors.coral
+                                  : cell.isClue
+                                  ? AppColors.ink
+                                  : AppColors.blueberry,
+                            ),
+                      ),
               ),
             ),
           );
@@ -269,17 +284,57 @@ class _SudokuGrid extends StatelessWidget {
   }
 }
 
-class _NumberPad extends StatelessWidget {
-  const _NumberPad({
-    required this.onDigitPressed,
-    required this.onErasePressed,
-  });
+class _NoteMatrix extends StatelessWidget {
+  const _NoteMatrix({required this.notes});
 
-  final ValueChanged<int> onDigitPressed;
-  final VoidCallback onErasePressed;
+  final Set<int> notes;
 
   @override
   Widget build(BuildContext context) {
+    if (notes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(3),
+      child: GridView.count(
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 3,
+        children: [
+          for (var digit = 1; digit <= 9; digit++)
+            Center(
+              child: Text(
+                notes.contains(digit) ? '$digit' : '',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontSize: 10,
+                  color: AppColors.mutedInk,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NumberPad extends StatelessWidget {
+  const _NumberPad({
+    required this.state,
+    required this.onDigitPressed,
+    required this.onErasePressed,
+    required this.onNotesTogglePressed,
+  });
+
+  final SudokuState state;
+  final ValueChanged<int> onDigitPressed;
+  final VoidCallback onErasePressed;
+  final VoidCallback onNotesTogglePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     return Column(
       children: [
         Wrap(
@@ -291,19 +346,79 @@ class _NumberPad extends StatelessWidget {
                 width: 66,
                 height: 54,
                 child: OutlinedButton(
-                  onPressed: () => onDigitPressed(digit),
-                  child: Text('$digit'),
+                  onPressed:
+                      !state.isNoteMode &&
+                          state.remainingCountForDigit(digit) == 0
+                      ? null
+                      : () => onDigitPressed(digit),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 6,
+                    ),
+                    backgroundColor: state.remainingCountForDigit(digit) == 0
+                        ? AppColors.white.withValues(alpha: 0.46)
+                        : AppColors.white,
+                    side: BorderSide(
+                      color: state.isNoteMode
+                          ? AppColors.lagoon.withValues(alpha: 0.32)
+                          : Colors.white.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$digit',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: AppColors.ink,
+                              fontSize: 16,
+                              height: 1,
+                            ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        l10n.digitRemainingShort(
+                          state.remainingCountForDigit(digit),
+                        ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontSize: 8.5,
+                          height: 1,
+                          color: AppColors.mutedInk,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],
         ),
         const SizedBox(height: 12),
-        ClayButton(
-          label: context.l10n.erase,
-          icon: Icons.backspace_outlined,
-          onPressed: onErasePressed,
-          backgroundColor: AppColors.white,
-          foregroundColor: AppColors.ink,
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            ClayButton(
+              label: state.isNoteMode ? l10n.noteModeOn : l10n.noteModeOff,
+              icon: Icons.edit_note_rounded,
+              onPressed: onNotesTogglePressed,
+              backgroundColor: state.isNoteMode
+                  ? AppColors.lagoon
+                  : AppColors.white,
+              foregroundColor: state.isNoteMode
+                  ? AppColors.white
+                  : AppColors.ink,
+            ),
+            ClayButton(
+              label: l10n.erase,
+              icon: Icons.backspace_outlined,
+              onPressed: onErasePressed,
+              backgroundColor: AppColors.white,
+              foregroundColor: AppColors.ink,
+            ),
+          ],
         ),
       ],
     );

@@ -32,5 +32,6 @@ void main() {
     expect(find.text('Match-3 Theatre'), findsOneWidget);
     expect(find.text('Choose a Level'), findsOneWidget);
     expect(find.text('Level 1'), findsWidgets);
+    expect(find.text('Level 10'), findsOneWidget);
   });
 }

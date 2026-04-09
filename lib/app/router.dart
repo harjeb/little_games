@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/animations/clay_page_route.dart';
 import '../features/game_2048/presentation/game_2048_result_screen.dart';
 import '../features/game_2048/presentation/game_2048_screen.dart';
 import '../features/home/presentation/home_screen.dart';
@@ -25,15 +26,17 @@ final class AppRouter {
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     return switch (settings.name) {
-      homeRoute => MaterialPageRoute<void>(
+      homeRoute => _route(
+        settings: settings,
         builder: (_) => const HomeScreen(),
-        settings: settings,
       ),
-      yahtzeeRoute => MaterialPageRoute<void>(
+      yahtzeeRoute => _route(
+        settings: settings,
         builder: (_) => const YahtzeeScreen(),
-        settings: settings,
       ),
-      yahtzeeResultRoute => MaterialPageRoute<void>(
+      yahtzeeResultRoute => _route(
+        settings: settings,
+        style: ClayRouteTransitionStyle.result,
         builder: (_) => YahtzeeResultScreen(
           result: settings.arguments is YahtzeeResultData
               ? settings.arguments! as YahtzeeResultData
@@ -43,13 +46,14 @@ final class AppRouter {
                   extraYahtzeeBonus: 0,
                 ),
         ),
-        settings: settings,
       ),
-      game2048Route => MaterialPageRoute<void>(
+      game2048Route => _route(
+        settings: settings,
         builder: (_) => const Game2048Screen(),
-        settings: settings,
       ),
-      game2048ResultRoute => MaterialPageRoute<void>(
+      game2048ResultRoute => _route(
+        settings: settings,
+        style: ClayRouteTransitionStyle.result,
         builder: (_) => Game2048ResultScreen(
           result: settings.arguments is Game2048ResultData
               ? settings.arguments! as Game2048ResultData
@@ -59,36 +63,31 @@ final class AppRouter {
                   didReach2048: false,
                 ),
         ),
-        settings: settings,
       ),
-      match3Route => MaterialPageRoute<void>(
+      match3Route => _route(
+        settings: settings,
         builder: (_) => const Match3Screen(),
-        settings: settings,
       ),
-      match3ResultRoute => MaterialPageRoute<void>(
+      match3ResultRoute => _route(
+        settings: settings,
+        style: ClayRouteTransitionStyle.result,
         builder: (_) => Match3ResultScreen(
           result: settings.arguments is Match3ResultData
               ? settings.arguments! as Match3ResultData
               : Match3ResultData(
-                  level: const Match3LevelConfig(
-                    id: 1,
-                    name: 'Candy Warmup',
-                    targetScore: 2400,
-                    ruleType: Match3LevelRuleType.moves,
-                    colorCount: 5,
-                    movesLimit: 14,
-                  ),
+                  level: Match3LevelConfig.defaults.first,
                   score: 0,
                   didWin: false,
                 ),
         ),
-        settings: settings,
       ),
-      sudokuRoute => MaterialPageRoute<void>(
+      sudokuRoute => _route(
+        settings: settings,
         builder: (_) => const SudokuScreen(),
-        settings: settings,
       ),
-      sudokuResultRoute => MaterialPageRoute<void>(
+      sudokuResultRoute => _route(
+        settings: settings,
+        style: ClayRouteTransitionStyle.result,
         builder: (_) => SudokuResultScreen(
           result: settings.arguments is SudokuResultData
               ? settings.arguments! as SudokuResultData
@@ -98,12 +97,16 @@ final class AppRouter {
                   mistakes: 0,
                 ),
         ),
-        settings: settings,
       ),
-      _ => MaterialPageRoute<void>(
-        builder: (_) => const HomeScreen(),
-        settings: settings,
-      ),
+      _ => _route(settings: settings, builder: (_) => const HomeScreen()),
     };
+  }
+
+  static Route<T> _route<T>({
+    required RouteSettings settings,
+    required WidgetBuilder builder,
+    ClayRouteTransitionStyle style = ClayRouteTransitionStyle.page,
+  }) {
+    return ClayPageRoute<T>(builder: builder, settings: settings, style: style);
   }
 }

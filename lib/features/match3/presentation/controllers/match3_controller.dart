@@ -70,6 +70,18 @@ class Match3Controller extends Notifier<Match3State> {
     state = state.copyWith(showLevelPicker: !state.showLevelPicker);
   }
 
+  void dragSwap(int fromRow, int fromCol, int toRow, int toCol) {
+    if (!state.isPlayable) {
+      return;
+    }
+
+    _attemptSwap(
+      from: (fromRow, fromCol),
+      to: (toRow, toCol),
+      clearSelectionOnFailure: true,
+    );
+  }
+
   void selectCell(int row, int col) {
     if (!state.isPlayable) {
       return;
@@ -90,18 +102,46 @@ class Match3Controller extends Notifier<Match3State> {
       return;
     }
 
-    final result = _engine.trySwap(
-      grid: state.grid,
+    _attemptSwap(
       from: selected,
       to: (row, col),
+      selectionOnFailure: (row, col),
+    );
+  }
+
+  void restartCurrentLevel() {
+    startLevel(state.level);
+  }
+
+  void _attemptSwap({
+    required (int row, int col) from,
+    required (int row, int col) to,
+    (int row, int col)? selectionOnFailure,
+    bool clearSelectionOnFailure = false,
+  }) {
+    if ((from.$1 - to.$1).abs() + (from.$2 - to.$2).abs() != 1) {
+      state = state.copyWith(
+        selectedCell: selectionOnFailure,
+        clearSelectedCell: clearSelectionOnFailure,
+        clearLastSwap: true,
+        lastCascadeCount: 0,
+        lastClearedCount: 0,
+      );
+      return;
+    }
+
+    final result = _engine.trySwap(
+      grid: state.grid,
+      from: from,
+      to: to,
       level: state.level,
       random: _random,
       nextPieceId: state.nextPieceId,
     );
-
     if (!result.boardChanged) {
       state = state.copyWith(
-        selectedCell: (row, col),
+        selectedCell: selectionOnFailure,
+        clearSelectedCell: clearSelectionOnFailure,
         clearLastSwap: true,
         lastCascadeCount: 0,
         lastClearedCount: 0,
@@ -141,7 +181,7 @@ class Match3Controller extends Notifier<Match3State> {
       obstaclesRemaining: nextObstacles,
       status: nextStatus,
       clearSelectedCell: true,
-      lastSwap: (selected, (row, col)),
+      lastSwap: (from, to),
       lastCascadeCount: result.cascades,
       lastClearedCount: result.clearedCount,
     );
@@ -149,10 +189,6 @@ class Match3Controller extends Notifier<Match3State> {
     if (nextStatus != Match3Status.playing) {
       _timer?.cancel();
     }
-  }
-
-  void restartCurrentLevel() {
-    startLevel(state.level);
   }
 
   void _configureTimer(Match3LevelConfig level, int? initialSeconds) {

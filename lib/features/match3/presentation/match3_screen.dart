@@ -162,6 +162,7 @@ class _Match3ScreenState extends ConsumerState<Match3Screen> {
                     child: _Match3Board(
                       state: state,
                       onCellTap: controller.selectCell,
+                      onCellDrag: controller.dragSwap,
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -364,11 +365,28 @@ class _LevelPicker extends StatelessWidget {
   }
 }
 
-class _Match3Board extends StatelessWidget {
-  const _Match3Board({required this.state, required this.onCellTap});
+class _Match3Board extends StatefulWidget {
+  const _Match3Board({
+    required this.state,
+    required this.onCellTap,
+    required this.onCellDrag,
+  });
 
   final Match3State state;
   final void Function(int row, int col) onCellTap;
+  final void Function(int fromRow, int fromCol, int toRow, int toCol)
+  onCellDrag;
+
+  @override
+  State<_Match3Board> createState() => _Match3BoardState();
+}
+
+class _Match3BoardState extends State<_Match3Board> {
+  static const double _dragThreshold = 20;
+
+  (int row, int col)? _dragOrigin;
+  Offset _dragDelta = Offset.zero;
+  bool _dragTriggered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -386,14 +404,24 @@ class _Match3Board extends StatelessWidget {
         itemBuilder: (context, index) {
           final row = index ~/ 8;
           final col = index % 8;
-          final piece = state.grid.pieceAt(row, col);
-          final isSelected = state.selectedCell == (row, col);
+          final piece = widget.state.grid.pieceAt(row, col);
+          final isSelected = widget.state.selectedCell == (row, col);
           final isSwapTarget =
-              state.lastSwap?.$1 == (row, col) ||
-              state.lastSwap?.$2 == (row, col);
+              widget.state.lastSwap?.$1 == (row, col) ||
+              widget.state.lastSwap?.$2 == (row, col);
 
           return GestureDetector(
-            onTap: state.isPlayable ? () => onCellTap(row, col) : null,
+            onTap: widget.state.isPlayable
+                ? () => widget.onCellTap(row, col)
+                : null,
+            onPanStart: widget.state.isPlayable
+                ? (_) => _beginDrag(row, col)
+                : null,
+            onPanUpdate: widget.state.isPlayable
+                ? (details) => _updateDrag(details)
+                : null,
+            onPanEnd: widget.state.isPlayable ? (_) => _endDrag() : null,
+            onPanCancel: widget.state.isPlayable ? _cancelDrag : null,
             child: AnimatedScale(
               duration: const Duration(milliseconds: 140),
               scale: isSelected ? 1.06 : 1,
@@ -422,6 +450,45 @@ class _Match3Board extends StatelessWidget {
         },
       ),
     );
+  }
+
+  void _beginDrag(int row, int col) {
+    _dragOrigin = (row, col);
+    _dragDelta = Offset.zero;
+    _dragTriggered = false;
+  }
+
+  void _updateDrag(DragUpdateDetails details) {
+    if (_dragOrigin == null || _dragTriggered) {
+      return;
+    }
+
+    _dragDelta += details.delta;
+    if (_dragDelta.distance < _dragThreshold) {
+      return;
+    }
+
+    final horizontal = _dragDelta.dx.abs() >= _dragDelta.dy.abs();
+    final rowDelta = horizontal ? 0 : (_dragDelta.dy.isNegative ? -1 : 1);
+    final colDelta = horizontal ? (_dragDelta.dx.isNegative ? -1 : 1) : 0;
+    final target = (_dragOrigin!.$1 + rowDelta, _dragOrigin!.$2 + colDelta);
+    if (target.$1 < 0 || target.$1 >= 8 || target.$2 < 0 || target.$2 >= 8) {
+      _dragTriggered = true;
+      return;
+    }
+
+    widget.onCellDrag(_dragOrigin!.$1, _dragOrigin!.$2, target.$1, target.$2);
+    _dragTriggered = true;
+  }
+
+  void _endDrag() {
+    _dragOrigin = null;
+    _dragDelta = Offset.zero;
+    _dragTriggered = false;
+  }
+
+  void _cancelDrag() {
+    _endDrag();
   }
 }
 

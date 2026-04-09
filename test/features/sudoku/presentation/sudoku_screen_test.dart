@@ -32,6 +32,7 @@ void main() {
     expect(find.text('Easy'), findsOneWidget);
     expect(find.text('Mistakes'), findsOneWidget);
     expect(find.text('Erase'), findsOneWidget);
+    expect(find.text('Notes Off'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     container.dispose();

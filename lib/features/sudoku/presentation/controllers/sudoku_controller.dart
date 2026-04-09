@@ -34,14 +34,16 @@ class SudokuController extends Notifier<SudokuState> {
   }
 
   void selectCell(int index) {
-    if (state.cells[index].isClue) {
-      return;
-    }
     state = state.copyWith(selectedIndex: index, clearLastErrorIndex: true);
   }
 
   void placeDigit(int digit) {
     if (state.isComplete || state.selectedIndex == null) {
+      return;
+    }
+
+    if (state.isNoteMode) {
+      toggleNote(digit);
       return;
     }
 
@@ -60,7 +62,8 @@ class SudokuController extends Notifier<SudokuState> {
     }
 
     final nextCells = state.cells.toList();
-    nextCells[index] = cell.copyWith(value: digit);
+    nextCells[index] = cell.copyWith(value: digit, notes: const <int>{});
+    _clearPeerNotes(nextCells, index, digit);
     final isComplete = nextCells.every(
       (nextCell) => nextCell.value == nextCell.solutionValue,
     );
@@ -76,6 +79,31 @@ class SudokuController extends Notifier<SudokuState> {
     }
   }
 
+  void toggleNoteMode() {
+    state = state.copyWith(isNoteMode: !state.isNoteMode);
+  }
+
+  void toggleNote(int digit) {
+    if (state.isComplete || state.selectedIndex == null) {
+      return;
+    }
+
+    final index = state.selectedIndex!;
+    final cell = state.cells[index];
+    if (cell.isClue || cell.value != null) {
+      return;
+    }
+
+    final nextNotes = Set<int>.from(cell.notes);
+    if (!nextNotes.add(digit)) {
+      nextNotes.remove(digit);
+    }
+
+    final nextCells = state.cells.toList();
+    nextCells[index] = cell.copyWith(notes: nextNotes);
+    state = state.copyWith(cells: nextCells, clearLastErrorIndex: true);
+  }
+
   void eraseSelected() {
     if (state.isComplete || state.selectedIndex == null) {
       return;
@@ -83,12 +111,12 @@ class SudokuController extends Notifier<SudokuState> {
 
     final index = state.selectedIndex!;
     final cell = state.cells[index];
-    if (cell.isClue || cell.value == null) {
+    if (cell.isClue || (cell.value == null && cell.notes.isEmpty)) {
       return;
     }
 
     final nextCells = state.cells.toList();
-    nextCells[index] = cell.copyWith(value: null);
+    nextCells[index] = cell.copyWith(value: null, notes: const <int>{});
     state = state.copyWith(cells: nextCells, clearLastErrorIndex: true);
   }
 
@@ -102,6 +130,7 @@ class SudokuController extends Notifier<SudokuState> {
           solutionValue: puzzle.solution[index],
           value: puzzle.puzzle[index] == 0 ? null : puzzle.puzzle[index],
           isClue: puzzle.puzzle[index] != 0,
+          notes: const <int>{},
         ),
     ];
     final firstEditable = cells.indexWhere((cell) => !cell.isClue);
@@ -112,6 +141,7 @@ class SudokuController extends Notifier<SudokuState> {
       elapsedSeconds: 0,
       mistakes: 0,
       selectedIndex: firstEditable == -1 ? null : firstEditable,
+      isNoteMode: false,
     );
 
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -119,5 +149,33 @@ class SudokuController extends Notifier<SudokuState> {
     });
 
     return nextState;
+  }
+
+  void _clearPeerNotes(List<SudokuCell> cells, int originIndex, int digit) {
+    final originRow = originIndex ~/ 9;
+    final originCol = originIndex % 9;
+    final originBox = (originRow ~/ 3) * 3 + (originCol ~/ 3);
+
+    for (var index = 0; index < cells.length; index++) {
+      if (index == originIndex) {
+        continue;
+      }
+
+      final cell = cells[index];
+      if (cell.notes.isEmpty || cell.isClue || cell.value != null) {
+        continue;
+      }
+
+      final row = index ~/ 9;
+      final col = index % 9;
+      final box = (row ~/ 3) * 3 + (col ~/ 3);
+      final isPeer = row == originRow || col == originCol || box == originBox;
+      if (!isPeer || !cell.notes.contains(digit)) {
+        continue;
+      }
+
+      final nextNotes = Set<int>.from(cell.notes)..remove(digit);
+      cells[index] = cell.copyWith(notes: nextNotes);
+    }
   }
 }

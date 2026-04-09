@@ -180,6 +180,11 @@ class AppLocalizations {
       : 'Pick a lane, fill the grid, and chase the cleanest completion time.';
   String get time => isChinese ? '时间' : 'Time';
   String get mistakes => isChinese ? '错误' : 'Mistakes';
+  String get notes => isChinese ? '笔记' : 'Notes';
+  String get noteModeOn => isChinese ? '笔记开启' : 'Notes On';
+  String get noteModeOff => isChinese ? '笔记关闭' : 'Notes Off';
+  String digitRemainingShort(int count) =>
+      isChinese ? '剩 $count' : '$count left';
   String get newPuzzle => isChinese ? '新谜题' : 'New Puzzle';
   String get erase => isChinese ? '擦除' : 'Erase';
   String get cleanSweep => isChinese ? '完美通关！' : 'Clean Sweep!';
@@ -218,8 +223,8 @@ class AppLocalizations {
 
   String get match3Title => isChinese ? '糖块剧场' : 'Match-3 Theatre';
   String get match3Hint => isChinese
-      ? '依次点选两个相邻糖块完成交换。凑成 3 个以上即可消除并触发连锁。'
-      : 'Tap two neighboring pieces to swap. Match 3 or more to clear and chain cascades.';
+      ? '可依次点选或直接拖拽相邻糖块完成交换。凑成 3 个以上即可消除并触发连锁。'
+      : 'Tap neighboring pieces or drag toward an adjacent piece to swap. Match 3 or more to clear and chain cascades.';
   String get match3Moves => isChinese ? '步数' : 'Moves';
   String get match3Obstacles => isChinese ? '障碍' : 'Obstacles';
   String match3ObstaclesLeft(int count) =>

@@ -1,21 +1,31 @@
 class SudokuCell {
-  const SudokuCell({
+  SudokuCell({
     required this.solutionValue,
     required this.value,
     required this.isClue,
-  });
+    Set<int> notes = const <int>{},
+  }) : notes = Set<int>.unmodifiable(notes);
+
+  static const Object _unset = Object();
 
   final int solutionValue;
   final int? value;
   final bool isClue;
+  final Set<int> notes;
 
   bool get isFilled => value != null;
 
-  SudokuCell copyWith({int? solutionValue, int? value, bool? isClue}) {
+  SudokuCell copyWith({
+    int? solutionValue,
+    Object? value = _unset,
+    bool? isClue,
+    Set<int>? notes,
+  }) {
     return SudokuCell(
       solutionValue: solutionValue ?? this.solutionValue,
-      value: value ?? this.value,
+      value: identical(value, _unset) ? this.value : value as int?,
       isClue: isClue ?? this.isClue,
+      notes: notes ?? this.notes,
     );
   }
 }
