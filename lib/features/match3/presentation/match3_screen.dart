@@ -24,39 +24,7 @@ class Match3Screen extends ConsumerStatefulWidget {
 }
 
 class _Match3ScreenState extends ConsumerState<Match3Screen> {
-  ProviderSubscription<Match3State>? _subscription;
   bool _navigated = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _subscription = ref.listenManual<Match3State>(match3ControllerProvider, (
-      previous,
-      next,
-    ) {
-      if (!_navigated &&
-          previous?.status == Match3Status.playing &&
-          next.status != Match3Status.playing) {
-        _navigated = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.of(context).pushReplacementNamed(
-            AppRouter.match3ResultRoute,
-            arguments: Match3ResultData(
-              level: next.level,
-              score: next.score,
-              didWin: next.status == Match3Status.won,
-            ),
-          );
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _subscription?.close();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,633 +32,870 @@ class _Match3ScreenState extends ConsumerState<Match3Screen> {
     final state = ref.watch(match3ControllerProvider);
     final controller = ref.read(match3ControllerProvider.notifier);
 
+    ref.listen<PadState>(match3ControllerProvider, (prev, next) {
+      if (_navigated) return;
+      if (next.phase == PadPhase.dead ||
+          next.phase == PadPhase.dungeonCleared) {
+        _navigated = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.of(context).pushReplacementNamed(
+            AppRouter.match3ResultRoute,
+            arguments: Match3ResultData(
+              stagesCleared: next.phase == PadPhase.dungeonCleared
+                  ? DungeonConfig.stages.length
+                  : next.stageIndex,
+              totalDamage: next.totalDamageDealt,
+              maxCombo: next.maxCombo,
+              didWin: next.phase == PadPhase.dungeonCleared,
+            ),
+          );
+        });
+      }
+    });
+
     return ClayScaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back_rounded),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
                     l10n.match3Title,
-                    style: Theme.of(context).textTheme.displaySmall,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${state.stageIndex + 1} / ${DungeonConfig.stages.length}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _MonsterPanel(state: state),
+              const SizedBox(height: 8),
+              if (state.lastDamageDealt > 0 ||
+                  state.lastHealingDone > 0 ||
+                  state.lastMonsterDamage > 0)
+                _CombatFeedback(state: state),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _PadBoard(state: state, controller: controller),
+              ),
+              const SizedBox(height: 8),
+              _PlayerBar(state: state),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClayButton(
+                      label: l10n.newGame,
+                      icon: Icons.refresh_rounded,
+                      onPressed: controller.restartDungeon,
+                      backgroundColor: AppColors.coral,
+                      foregroundColor: AppColors.white,
+                    ),
+                  ),
+                  if (state.phase == PadPhase.stageCleared) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ClayButton(
+                        label: l10n.match3NextStage,
+                        icon: Icons.arrow_forward_rounded,
+                        onPressed: controller.nextStageOrFinish,
+                        backgroundColor: AppColors.lagoon,
+                        foregroundColor: AppColors.white,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MonsterPanel extends StatelessWidget {
+  const _MonsterPanel({required this.state});
+
+  final PadState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final monster = state.monster;
+    final hpFraction = (state.monsterHp / monster.hp).clamp(0.0, 1.0);
+
+    return ClayPanel(
+      backgroundColor: AppColors.white.withValues(alpha: 0.92),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: _elementColor(monster.element),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    _elementEmoji(monster.element),
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.isChinese ? monster.nameZh : monster.nameEn,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      'ATK ${monster.attack}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${state.monsterHp} / ${monster.hp}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: hpFraction,
+              minHeight: 10,
+              backgroundColor: AppColors.haze,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                _elementColor(monster.element),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlayerBar extends StatelessWidget {
+  const _PlayerBar({required this.state});
+
+  final PadState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = (state.playerHp / DungeonConfig.playerStartHp).clamp(
+      0.0,
+      1.0,
+    );
+    final l10n = context.l10n;
+
+    return ClayPanel(
+      backgroundColor: AppColors.white.withValues(alpha: 0.92),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          const Text('♥', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${l10n.padPlayerHp}: ${state.playerHp} / ${DungeonConfig.playerStartHp}',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: fraction,
+                    minHeight: 8,
+                    backgroundColor: AppColors.haze,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.coral,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            ClayPanel(
-              backgroundColor: AppColors.white.withValues(alpha: 0.9),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.match3Hint,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyLarge?.copyWith(color: AppColors.mutedInk),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _HudCard(
-                          label: l10n.score,
-                          value: '${state.score}',
-                          color: AppColors.butter,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _HudCard(
-                          label: _progressLabel(l10n, state.level),
-                          value: _progressValue(state),
-                          color: AppColors.mintCream,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _HudCard(
-                          label: l10n.target,
-                          value: '${state.level.targetScore}',
-                          color: AppColors.melon,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (state.lastCascadeCount > 1 ||
-                      state.lastClearedCount > 0) ...[
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        if (state.lastCascadeCount > 1)
-                          _ChipBadge(
-                            text: l10n.match3Combo(state.lastCascadeCount),
-                            color: AppColors.blueberry,
-                          ),
-                        if (state.level.ruleType ==
-                            Match3LevelRuleType.obstacles)
-                          _ChipBadge(
-                            text: l10n.match3ObstaclesLeft(
-                              state.obstaclesRemaining,
-                            ),
-                            color: AppColors.lagoon,
-                          ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  if (state.showLevelPicker) ...[
-                    Text(
-                      l10n.match3ChooseLevel,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    _LevelPicker(
-                      activeLevel: state.level,
-                      onSelect: controller.startLevel,
-                    ),
-                    const SizedBox(height: 18),
-                  ],
-                  AspectRatio(
-                    aspectRatio: 1,
-                    child: _Match3Board(
-                      state: state,
-                      onCellTap: controller.selectCell,
-                      onCellDrag: controller.dragSwap,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      ClayButton(
-                        label: l10n.match3LevelLabel(state.level.id),
-                        icon: Icons.layers_rounded,
-                        onPressed: controller.toggleLevelPicker,
-                        backgroundColor: AppColors.white,
-                        foregroundColor: AppColors.ink,
-                      ),
-                      ClayButton(
-                        label: l10n.newGame,
-                        icon: Icons.refresh_rounded,
-                        onPressed: controller.restartCurrentLevel,
-                        backgroundColor: AppColors.coral,
-                        foregroundColor: AppColors.white,
-                      ),
-                    ],
-                  ),
-                ],
+          ),
+          if (state.phase == PadPhase.dragging) ...[
+            const SizedBox(width: 12),
+            Text(
+              '${state.dragTimeRemaining.toStringAsFixed(1)}s',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: state.dragTimeRemaining < 1.5
+                    ? AppColors.coral
+                    : AppColors.ink,
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  String _progressLabel(AppLocalizations l10n, Match3LevelConfig level) {
-    return switch (level.ruleType) {
-      Match3LevelRuleType.moves => l10n.match3Moves,
-      Match3LevelRuleType.timer => l10n.time,
-      Match3LevelRuleType.obstacles => l10n.match3Obstacles,
-    };
-  }
-
-  String _progressValue(Match3State state) {
-    return switch (state.level.ruleType) {
-      Match3LevelRuleType.moves => '${state.movesRemaining ?? 0}',
-      Match3LevelRuleType.timer => _formatDuration(
-        state.timeRemainingSeconds ?? 0,
-      ),
-      Match3LevelRuleType.obstacles => '${state.obstaclesRemaining}',
-    };
-  }
-
-  String _formatDuration(int totalSeconds) {
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-}
-
-class _HudCard extends StatelessWidget {
-  const _HudCard({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClayPanel(
-      backgroundColor: color,
-      borderRadius: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: AppColors.mutedInk),
-          ),
-          const SizedBox(height: 6),
-          Text(value, style: Theme.of(context).textTheme.titleLarge),
         ],
       ),
     );
   }
 }
 
-class _ChipBadge extends StatelessWidget {
-  const _ChipBadge({required this.text, required this.color});
+class _CombatFeedback extends StatelessWidget {
+  const _CombatFeedback({required this.state});
 
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutBack,
-      tween: Tween<double>(begin: 0.86, end: 1),
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: lerpDouble(0.55, 1, value)!,
-          child: Transform.translate(
-            offset: Offset(0, lerpDouble(10, 0, value)!),
-            child: Transform.scale(scale: value, child: child),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          text,
-          style: Theme.of(
-            context,
-          ).textTheme.labelLarge?.copyWith(color: AppColors.white),
-        ),
-      ),
-    );
-  }
-}
-
-class _LevelPicker extends StatelessWidget {
-  const _LevelPicker({required this.activeLevel, required this.onSelect});
-
-  final Match3LevelConfig activeLevel;
-  final ValueChanged<Match3LevelConfig> onSelect;
+  final PadState state;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Column(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        for (final level in Match3LevelConfig.defaults) ...[
-          InkWell(
-            onTap: () => onSelect(level),
-            borderRadius: BorderRadius.circular(24),
-            child: ClayPanel(
-              backgroundColor: level.id == activeLevel.id
-                  ? AppColors.sky
-                  : AppColors.white.withValues(alpha: 0.92),
-              borderRadius: 24,
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: _levelColor(level.id),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${level.id}',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppColors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.match3LevelLabel(level.id),
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _levelSubtitle(l10n, level),
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        if (state.lastTurnResult != null &&
+            state.lastTurnResult!.comboCount > 0)
+          _tag(
+            '${state.lastTurnResult!.comboCount} Combo',
+            AppColors.blueberry,
           ),
-          if (level != Match3LevelConfig.defaults.last)
-            const SizedBox(height: 10),
-        ],
+        if (state.lastDamageDealt > 0)
+          _tag('${l10n.padDamage} ${state.lastDamageDealt}', AppColors.coral),
+        if (state.lastHealingDone > 0)
+          _tag('${l10n.padHeal} +${state.lastHealingDone}', AppColors.lagoon),
+        if (state.lastMonsterDamage > 0)
+          _tag(
+            '${l10n.padMonsterAtk} -${state.lastMonsterDamage}',
+            AppColors.ink,
+          ),
       ],
     );
   }
 
-  String _levelSubtitle(AppLocalizations l10n, Match3LevelConfig level) {
-    return switch (level.ruleType) {
-      Match3LevelRuleType.moves =>
-        '${l10n.match3Moves}: ${level.movesLimit} • ${l10n.target}: ${level.targetScore}',
-      Match3LevelRuleType.timer =>
-        '${l10n.time}: ${level.timeLimitSeconds}s • ${l10n.target}: ${level.targetScore}',
-      Match3LevelRuleType.obstacles =>
-        '${l10n.match3Obstacles}: ${level.obstacles.length} • ${l10n.match3Moves}: ${level.movesLimit}',
-    };
-  }
-
-  Color _levelColor(int id) {
-    return switch (id) {
-      1 => AppColors.coral,
-      2 => AppColors.blueberry,
-      _ => AppColors.lagoon,
-    };
+  Widget _tag(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
   }
 }
 
-class _Match3Board extends StatefulWidget {
-  const _Match3Board({
-    required this.state,
-    required this.onCellTap,
-    required this.onCellDrag,
-  });
+class _PadBoard extends StatelessWidget {
+  const _PadBoard({required this.state, required this.controller});
 
-  final Match3State state;
-  final void Function(int row, int col) onCellTap;
-  final void Function(int fromRow, int fromCol, int toRow, int toCol)
-  onCellDrag;
+  final PadState state;
+  final Match3Controller controller;
 
   @override
-  State<_Match3Board> createState() => _Match3BoardState();
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellSize = (constraints.maxWidth - 5 * 6) / 6;
+        final boardHeight = cellSize * 5 + 4 * 6;
+
+        return Center(
+          child: SizedBox(
+            width: constraints.maxWidth,
+            height: boardHeight,
+            child: ClayPanel(
+              backgroundColor: AppColors.haze.withValues(alpha: 0.92),
+              padding: const EdgeInsets.all(6),
+              child: _OrbGrid(state: state, controller: controller),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
-class _Match3BoardState extends State<_Match3Board>
-    with SingleTickerProviderStateMixin {
-  static const double _dragThreshold = 20;
+class _OrbGrid extends StatefulWidget {
+  const _OrbGrid({required this.state, required this.controller});
 
-  (int row, int col)? _dragOrigin;
-  Offset _dragDelta = Offset.zero;
-  bool _dragTriggered = false;
-  late final AnimationController _boardFxController;
+  final PadState state;
+  final Match3Controller controller;
+
+  @override
+  State<_OrbGrid> createState() => _OrbGridState();
+}
+
+class _OrbGridState extends State<_OrbGrid>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _swapController;
   Map<int, (int row, int col)> _previousPositions = <int, (int row, int col)>{};
-  Set<int> _animatedPieceIds = <int>{};
+  Map<int, int> _spawnSourceRows = <int, int>{};
+  Set<int> _movedOrbIds = <int>{};
+  Map<int, _OrbGhost> _vanishingOrbs = <int, _OrbGhost>{};
+  Offset? _pointerLocal;
 
   @override
   void initState() {
     super.initState();
-    _boardFxController = AnimationController(
+    _swapController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
+      duration: const Duration(milliseconds: 220),
       value: 1,
     );
   }
 
   @override
-  void didUpdateWidget(covariant _Match3Board oldWidget) {
+  void didUpdateWidget(covariant _OrbGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_gridSignature(oldWidget.state.grid) ==
+    if (_gridSignature(oldWidget.state.grid) !=
         _gridSignature(widget.state.grid)) {
-      return;
+      _previousPositions = _positionsById(oldWidget.state.grid);
+      final previousOrbs = _orbsById(oldWidget.state.grid);
+      final nextOrbs = _orbsById(widget.state.grid);
+      final nextPositions = _positionsById(widget.state.grid);
+      _spawnSourceRows = _computeSpawnSourceRows(widget.state.grid);
+      _movedOrbIds = {
+        for (final entry in nextPositions.entries)
+          if (_previousPositions[entry.key] != entry.value) entry.key,
+      };
+      _vanishingOrbs = {
+        for (final entry in previousOrbs.entries)
+          if (!nextOrbs.containsKey(entry.key))
+            entry.key: _OrbGhost(
+              orb: entry.value,
+              row: _previousPositions[entry.key]!.$1,
+              col: _previousPositions[entry.key]!.$2,
+            ),
+      };
+      if (_movedOrbIds.isNotEmpty || _vanishingOrbs.isNotEmpty) {
+        _swapController.forward(from: 0);
+      }
     }
 
-    _previousPositions = _positionsById(oldWidget.state.grid);
-    final nextPositions = _positionsById(widget.state.grid);
-    _animatedPieceIds = {
-      for (final entry in nextPositions.entries)
-        if (!_previousPositions.containsKey(entry.key) ||
-            _previousPositions[entry.key] != entry.value)
-          entry.key,
-    };
-    _boardFxController.forward(from: 0);
+    if (widget.state.phase != PadPhase.dragging && _pointerLocal != null) {
+      _pointerLocal = null;
+    }
   }
 
   @override
   void dispose() {
-    _boardFxController.dispose();
+    _swapController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ClayPanel(
-      backgroundColor: AppColors.haze.withValues(alpha: 0.95),
-      padding: const EdgeInsets.all(12),
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 8,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-        ),
-        itemCount: 64,
-        itemBuilder: (context, index) {
-          final row = index ~/ 8;
-          final col = index % 8;
-          final piece = widget.state.grid.pieceAt(row, col);
-          final isSelected = widget.state.selectedCell == (row, col);
-          final isSwapTarget =
-              widget.state.lastSwap?.$1 == (row, col) ||
-              widget.state.lastSwap?.$2 == (row, col);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = 4.0;
+        final cellW = (constraints.maxWidth - gap * 5) / 6;
+        final cellH = (constraints.maxHeight - gap * 4) / 5;
+        final cellSize = cellW < cellH ? cellW : cellH;
 
-          return GestureDetector(
-            onTap: widget.state.isPlayable
-                ? () => widget.onCellTap(row, col)
-                : null,
-            onPanStart: widget.state.isPlayable
-                ? (_) => _beginDrag(row, col)
-                : null,
-            onPanUpdate: widget.state.isPlayable
-                ? (details) => _updateDrag(details)
-                : null,
-            onPanEnd: widget.state.isPlayable ? (_) => _endDrag() : null,
-            onPanCancel: widget.state.isPlayable ? _cancelDrag : null,
-            child: AnimatedScale(
-              duration: const Duration(milliseconds: 140),
-              scale: isSelected ? 1.06 : 1,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  color: isSelected
-                      ? AppColors.white
-                      : isSwapTarget
-                      ? AppColors.sky.withValues(alpha: 0.95)
-                      : AppColors.white.withValues(alpha: 0.82),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.blueberry
-                        : Colors.white.withValues(alpha: 0.3),
-                    width: isSelected ? 2.2 : 1,
+        final activeDragCell = widget.state.dragCurrent;
+        final activeOrb = activeDragCell == null
+            ? null
+            : widget.state.grid.orbAt(activeDragCell.$1, activeDragCell.$2);
+        final activeOrbId = activeOrb?.id;
+        final activeOffset = _activeDragOffset(
+          cellSize: cellSize,
+          gap: gap,
+          activeCell: activeDragCell,
+        );
+        final preview = _dragPreview(
+          cellSize: cellSize,
+          currentCell: activeDragCell,
+          activeOffset: activeOffset,
+          activeOrbId: activeOrbId,
+        );
+
+        return Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: widget.state.canDrag
+              ? (event) {
+                  setState(() => _pointerLocal = event.localPosition);
+                  final pos = _cellFromOffset(
+                    event.localPosition,
+                    cellSize,
+                    gap,
+                  );
+                  if (pos != null) widget.controller.beginDrag(pos.$1, pos.$2);
+                }
+              : null,
+          onPointerMove: widget.state.phase == PadPhase.dragging
+              ? (event) {
+                  setState(() => _pointerLocal = event.localPosition);
+                  final pos = _cellFromOffset(
+                    event.localPosition,
+                    cellSize,
+                    gap,
+                  );
+                  if (pos != null) widget.controller.moveDrag(pos.$1, pos.$2);
+                }
+              : null,
+          onPointerUp: widget.state.phase == PadPhase.dragging
+              ? (_) {
+                  setState(() => _pointerLocal = null);
+                  widget.controller.endDrag();
+                }
+              : null,
+          onPointerCancel: widget.state.phase == PadPhase.dragging
+              ? (_) => setState(() => _pointerLocal = null)
+              : null,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (var row = 0; row < 5; row++)
+                for (var col = 0; col < 6; col++)
+                  if (widget.state.grid.orbAt(row, col) case final orb?)
+                    if (orb.id != activeOrbId)
+                      _buildOrb(
+                        orb: orb,
+                        row: row,
+                        col: col,
+                        cellSize: cellSize,
+                        gap: gap,
+                        extraOffset: preview.targetOrbId == orb.id
+                            ? preview.targetOffset
+                            : Offset.zero,
+                        isDragging: false,
+                        previewProgress: preview.progress,
+                        isPreviewTarget: preview.targetOrbId == orb.id,
+                      ),
+              for (final ghost in _vanishingOrbs.values)
+                Positioned(
+                  left: ghost.col * (cellSize + gap),
+                  top: ghost.row * (cellSize + gap),
+                  child: _ClearingOrb(
+                    orb: ghost.orb,
+                    size: cellSize,
+                    animation: _swapController,
                   ),
                 ),
-                child: piece == null
-                    ? const SizedBox.shrink()
-                    : AnimatedBuilder(
-                        animation: _boardFxController,
-                        builder: (context, child) {
-                          final progress = _pieceAnimationProgress(piece.id);
-                          final previous = _previousPositions[piece.id];
-                          final rowDelta = previous == null
-                              ? -1
-                              : previous.$1 - row;
-                          final columnDelta = previous == null
-                              ? 0
-                              : previous.$2 - col;
-                          final yOffset = lerpDouble(
-                            rowDelta == 0 ? 0 : rowDelta * 12,
-                            0,
-                            progress,
-                          )!;
-                          final xOffset = lerpDouble(
-                            columnDelta == 0 ? 0 : columnDelta * 8,
-                            0,
-                            progress,
-                          )!;
+              if (activeOrb case final orb?)
+                _buildOrb(
+                  orb: orb,
+                  row: activeDragCell!.$1,
+                  col: activeDragCell.$2,
+                  cellSize: cellSize,
+                  gap: gap,
+                  extraOffset: activeOffset,
+                  isDragging: true,
+                  previewProgress: preview.progress,
+                  isPreviewTarget: false,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-                          return Opacity(
-                            opacity: lerpDouble(
-                              _animatedPieceIds.contains(piece.id) ? 0.35 : 1,
-                              1,
-                              progress,
-                            )!,
-                            child: Transform.translate(
-                              offset: Offset(xOffset, yOffset),
-                              child: Transform.scale(
-                                scale: lerpDouble(
-                                  _animatedPieceIds.contains(piece.id)
-                                      ? 0.88
-                                      : 1,
-                                  1,
-                                  progress,
-                                )!,
-                                child: child,
-                              ),
-                            ),
-                          );
-                        },
-                        child: _PieceFace(piece: piece),
-                      ),
-              ),
-            ),
-          );
-        },
+  Widget _buildOrb({
+    required Orb orb,
+    required int row,
+    required int col,
+    required double cellSize,
+    required double gap,
+    required Offset extraOffset,
+    required bool isDragging,
+    required double previewProgress,
+    required bool isPreviewTarget,
+  }) {
+    final cellOffset = Offset(col * (cellSize + gap), row * (cellSize + gap));
+    final motionOffset = _swapMotionOffset(
+      orbId: orb.id,
+      row: row,
+      col: col,
+      cellSize: cellSize,
+      gap: gap,
+    );
+
+    return Positioned(
+      left: cellOffset.dx + motionOffset.dx + extraOffset.dx,
+      top: cellOffset.dy + motionOffset.dy + extraOffset.dy,
+      child: _OrbCell(
+        orb: orb,
+        size: cellSize,
+        isDragging: isDragging,
+        isPreviewTarget: isPreviewTarget,
+        previewProgress: previewProgress,
       ),
     );
   }
 
-  void _beginDrag(int row, int col) {
-    _dragOrigin = (row, col);
-    _dragDelta = Offset.zero;
-    _dragTriggered = false;
+  (int, int)? _cellFromOffset(Offset offset, double cellSize, double gap) {
+    final col = (offset.dx / (cellSize + gap)).floor();
+    final row = (offset.dy / (cellSize + gap)).floor();
+    if (row < 0 || row >= 5 || col < 0 || col >= 6) return null;
+    return (row, col);
   }
 
-  void _updateDrag(DragUpdateDetails details) {
-    if (_dragOrigin == null || _dragTriggered) {
-      return;
+  Offset _activeDragOffset({
+    required double cellSize,
+    required double gap,
+    required (int row, int col)? activeCell,
+  }) {
+    if (_pointerLocal == null || activeCell == null) {
+      return Offset.zero;
     }
 
-    _dragDelta += details.delta;
-    if (_dragDelta.distance < _dragThreshold) {
-      return;
+    final cellOrigin = Offset(
+      activeCell.$2 * (cellSize + gap),
+      activeCell.$1 * (cellSize + gap),
+    );
+    final center = cellOrigin + Offset(cellSize / 2, cellSize / 2);
+    final delta = _pointerLocal! - center;
+    return Offset(
+      delta.dx.clamp(-cellSize * 0.38, cellSize * 0.38).toDouble(),
+      delta.dy.clamp(-cellSize * 0.38, cellSize * 0.38).toDouble(),
+    );
+  }
+
+  _DragPreview _dragPreview({
+    required double cellSize,
+    required (int row, int col)? currentCell,
+    required Offset activeOffset,
+    required int? activeOrbId,
+  }) {
+    if (currentCell == null || activeOrbId == null) {
+      return const _DragPreview.none();
     }
 
-    final horizontal = _dragDelta.dx.abs() >= _dragDelta.dy.abs();
-    final rowDelta = horizontal ? 0 : (_dragDelta.dy.isNegative ? -1 : 1);
-    final colDelta = horizontal ? (_dragDelta.dx.isNegative ? -1 : 1) : 0;
-    final target = (_dragOrigin!.$1 + rowDelta, _dragOrigin!.$2 + colDelta);
-    if (target.$1 < 0 || target.$1 >= 8 || target.$2 < 0 || target.$2 >= 8) {
-      _dragTriggered = true;
-      return;
+    final horizontal = activeOffset.dx.abs() >= activeOffset.dy.abs();
+    final dominant = horizontal ? activeOffset.dx : activeOffset.dy;
+    final progress = ((dominant.abs() - cellSize * 0.08) / (cellSize * 0.24))
+        .clamp(0.0, 1.0)
+        .toDouble();
+    if (progress <= 0) {
+      return const _DragPreview.none();
     }
 
-    widget.onCellDrag(_dragOrigin!.$1, _dragOrigin!.$2, target.$1, target.$2);
-    _dragTriggered = true;
-  }
-
-  void _endDrag() {
-    _dragOrigin = null;
-    _dragDelta = Offset.zero;
-    _dragTriggered = false;
-  }
-
-  void _cancelDrag() {
-    _endDrag();
-  }
-
-  double _pieceAnimationProgress(int pieceId) {
-    if (!_animatedPieceIds.contains(pieceId)) {
-      return 1;
+    final rowDelta = horizontal ? 0 : (dominant.isNegative ? -1 : 1);
+    final colDelta = horizontal ? (dominant.isNegative ? -1 : 1) : 0;
+    final targetRow = currentCell.$1 + rowDelta;
+    final targetCol = currentCell.$2 + colDelta;
+    if (targetRow < 0 ||
+        targetRow >= widget.state.grid.rows ||
+        targetCol < 0 ||
+        targetCol >= widget.state.grid.cols) {
+      return const _DragPreview.none();
     }
-    return Curves.easeOutBack.transform(_boardFxController.value.clamp(0, 1));
+
+    final targetOrb = widget.state.grid.orbAt(targetRow, targetCol);
+    if (targetOrb == null || targetOrb.id == activeOrbId) {
+      return const _DragPreview.none();
+    }
+
+    final direction = Offset(colDelta.toDouble(), rowDelta.toDouble());
+    return _DragPreview(
+      targetOrbId: targetOrb.id,
+      targetOffset: direction * (cellSize * 0.24 * progress),
+      progress: progress,
+    );
   }
 
-  Map<int, (int row, int col)> _positionsById(Match3Grid grid) {
+  Offset _swapMotionOffset({
+    required int orbId,
+    required int row,
+    required int col,
+    required double cellSize,
+    required double gap,
+  }) {
+    if (!_movedOrbIds.contains(orbId)) {
+      return Offset.zero;
+    }
+
+    final previous = _previousPositions[orbId];
+    if (previous == null) {
+      final sourceRow = _spawnSourceRows[orbId];
+      if (sourceRow == null) {
+        return Offset.zero;
+      }
+
+      final progress = Curves.easeOutCubic.transform(_swapController.value);
+      return Offset.lerp(
+            Offset(0, (sourceRow - row) * (cellSize + gap)),
+            Offset.zero,
+            progress,
+          ) ??
+          Offset.zero;
+    }
+
+    final progress = Curves.easeOutCubic.transform(_swapController.value);
+    return Offset.lerp(
+          Offset(
+            (previous.$2 - col) * (cellSize + gap),
+            (previous.$1 - row) * (cellSize + gap),
+          ),
+          Offset.zero,
+          progress,
+        ) ??
+        Offset.zero;
+  }
+
+  Map<int, (int row, int col)> _positionsById(PadGrid grid) {
     final positions = <int, (int row, int col)>{};
-    for (var row = 0; row < grid.height; row++) {
-      for (var col = 0; col < grid.width; col++) {
-        final piece = grid.pieceAt(row, col);
-        if (piece != null) {
-          positions[piece.id] = (row, col);
+    for (var row = 0; row < grid.rows; row++) {
+      for (var col = 0; col < grid.cols; col++) {
+        final orb = grid.orbAt(row, col);
+        if (orb != null) {
+          positions[orb.id] = (row, col);
         }
       }
     }
     return positions;
   }
 
-  String _gridSignature(Match3Grid grid) {
+  Map<int, int> _computeSpawnSourceRows(PadGrid grid) {
+    final sourceRows = <int, int>{};
+    for (var col = 0; col < grid.cols; col++) {
+      final newOrbIds = <int>[];
+      for (var row = 0; row < grid.rows; row++) {
+        final orb = grid.orbAt(row, col);
+        if (orb != null && !_previousPositions.containsKey(orb.id)) {
+          newOrbIds.add(orb.id);
+        }
+      }
+
+      for (var index = 0; index < newOrbIds.length; index++) {
+        sourceRows[newOrbIds[index]] = -(newOrbIds.length - index);
+      }
+    }
+    return sourceRows;
+  }
+
+  Map<int, Orb> _orbsById(PadGrid grid) {
+    final orbs = <int, Orb>{};
+    for (var row = 0; row < grid.rows; row++) {
+      for (var col = 0; col < grid.cols; col++) {
+        final orb = grid.orbAt(row, col);
+        if (orb != null) {
+          orbs[orb.id] = orb;
+        }
+      }
+    }
+    return orbs;
+  }
+
+  String _gridSignature(PadGrid grid) {
     final parts = <String>[];
-    for (var row = 0; row < grid.height; row++) {
-      for (var col = 0; col < grid.width; col++) {
-        final piece = grid.pieceAt(row, col);
-        parts.add(piece == null ? '_' : '${piece.id}:${piece.type.name}');
+    for (var row = 0; row < grid.rows; row++) {
+      for (var col = 0; col < grid.cols; col++) {
+        final orb = grid.orbAt(row, col);
+        parts.add(orb == null ? '_' : '${orb.id}:${orb.element.name}');
       }
     }
     return parts.join('|');
   }
 }
 
-class _PieceFace extends StatelessWidget {
-  const _PieceFace({required this.piece});
+class _OrbCell extends StatelessWidget {
+  const _OrbCell({
+    required this.orb,
+    required this.size,
+    required this.isDragging,
+    required this.isPreviewTarget,
+    required this.previewProgress,
+  });
 
-  final Match3Piece piece;
+  final Orb? orb;
+  final double size;
+  final bool isDragging;
+  final bool isPreviewTarget;
+  final double previewProgress;
 
   @override
   Widget build(BuildContext context) {
-    if (piece.type == Match3PieceType.obstacle) {
-      return Center(
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: AppColors.ink.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            Icons.auto_awesome_motion_rounded,
-            size: 16,
-            color: AppColors.white,
-          ),
-        ),
-      );
+    if (orb == null) {
+      return SizedBox.square(dimension: size);
     }
 
-    final color = _colorFor(piece.color);
-    final icon = switch (piece.type) {
-      Match3PieceType.rowClear => Icons.swap_horiz_rounded,
-      Match3PieceType.columnClear => Icons.swap_vert_rounded,
-      Match3PieceType.rainbow => Icons.auto_awesome_rounded,
-      _ => null,
-    };
-
-    return Center(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: icon == null ? 34 : 40,
-        height: icon == null ? 34 : 40,
+    final color = _elementColor(orb!.element);
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 120),
+      scale: isDragging
+          ? 1.18
+          : isPreviewTarget
+          ? lerpDouble(1.0, 0.92, previewProgress)!
+          : 1.0,
+      child: Container(
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           gradient: RadialGradient(
-            center: const Alignment(-0.35, -0.35),
-            colors: [Color.lerp(color, Colors.white, 0.22) ?? color, color],
+            center: const Alignment(-0.3, -0.3),
+            colors: [Color.lerp(color, Colors.white, 0.28) ?? color, color],
           ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(size * 0.3),
           boxShadow: [
             BoxShadow(
-              color: AppColors.shadow.withValues(alpha: 0.14),
-              blurRadius: 6,
-              offset: const Offset(2, 3),
+              color: color.withValues(alpha: isDragging ? 0.48 : 0.35),
+              blurRadius: isDragging ? 10 : 6,
+              offset: isDragging ? const Offset(2, 8) : const Offset(1, 3),
             ),
           ],
         ),
-        child: icon == null
-            ? null
-            : Icon(icon, color: AppColors.white, size: 20),
+        child: Center(
+          child: Text(
+            _elementEmoji(orb!.element),
+            style: TextStyle(fontSize: size * 0.42),
+          ),
+        ),
       ),
     );
   }
+}
 
-  Color _colorFor(Match3PieceColor color) {
-    return switch (color) {
-      Match3PieceColor.coral => AppColors.coral,
-      Match3PieceColor.butter => AppColors.butter,
-      Match3PieceColor.blueberry => AppColors.blueberry,
-      Match3PieceColor.lagoon => AppColors.lagoon,
-      Match3PieceColor.grape => const Color(0xFFAA8FD8),
-      Match3PieceColor.peach => const Color(0xFFF0A56B),
-      Match3PieceColor.any => AppColors.white,
-    };
+class _ClearingOrb extends StatelessWidget {
+  const _ClearingOrb({
+    required this.orb,
+    required this.size,
+    required this.animation,
+  });
+
+  final Orb orb;
+  final double size;
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    final fade = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+    final pop = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+    final flash = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.0, 0.32, curve: Curves.easeOut),
+    );
+
+    final color = _elementColor(orb.element);
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final flashProgress = flash.value.clamp(0.0, 1.0);
+        final fadeProgress = fade.value.clamp(0.0, 1.0);
+        final popScale = lerpDouble(1.0, 1.18, pop.value.clamp(0.0, 1.0))!;
+        final shrinkScale = lerpDouble(1.0, 0.68, fadeProgress)!;
+        final overlayAlpha =
+            lerpDouble(0.0, 0.88, flashProgress)! * (1.0 - fadeProgress * 0.9);
+        final glowAlpha = lerpDouble(0.25, 0.0, fadeProgress)!;
+        final glowBlur = lerpDouble(10.0, 22.0, flashProgress)!;
+
+        return Opacity(
+          opacity: lerpDouble(1.0, 0.0, fadeProgress)!,
+          child: Transform.scale(
+            scale: popScale * shrinkScale,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: glowAlpha),
+                        blurRadius: glowBlur,
+                        spreadRadius: 1.5,
+                      ),
+                    ],
+                  ),
+                ),
+                _OrbCell(
+                  orb: orb,
+                  size: size,
+                  isDragging: false,
+                  isPreviewTarget: false,
+                  previewProgress: 0,
+                ),
+                Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: overlayAlpha),
+                        Colors.white.withValues(alpha: overlayAlpha * 0.4),
+                        Colors.white.withValues(alpha: 0),
+                      ],
+                      stops: const [0.0, 0.35, 1.0],
+                    ),
+                    borderRadius: BorderRadius.circular(size * 0.3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
+}
+
+class _DragPreview {
+  const _DragPreview({
+    required this.targetOrbId,
+    required this.targetOffset,
+    required this.progress,
+  });
+
+  const _DragPreview.none()
+    : targetOrbId = null,
+      targetOffset = Offset.zero,
+      progress = 0;
+
+  final int? targetOrbId;
+  final Offset targetOffset;
+  final double progress;
+}
+
+class _OrbGhost {
+  const _OrbGhost({required this.orb, required this.row, required this.col});
+
+  final Orb orb;
+  final int row;
+  final int col;
+}
+
+Color _elementColor(OrbElement element) {
+  return switch (element) {
+    OrbElement.fire => const Color(0xFFE25050),
+    OrbElement.water => const Color(0xFF4A90D9),
+    OrbElement.wind => const Color(0xFF4AB866),
+    OrbElement.light => const Color(0xFFD4A829),
+    OrbElement.dark => const Color(0xFF8B5EB0),
+    OrbElement.heart => const Color(0xFFE87DA0),
+  };
+}
+
+String _elementEmoji(OrbElement element) {
+  return switch (element) {
+    OrbElement.fire => '🔥',
+    OrbElement.water => '💧',
+    OrbElement.wind => '🍃',
+    OrbElement.light => '✨',
+    OrbElement.dark => '🌙',
+    OrbElement.heart => '♥',
+  };
 }
