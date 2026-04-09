@@ -13,6 +13,7 @@ class ClayContainer extends StatelessWidget {
     this.padding = const EdgeInsets.all(20),
     this.shadowStyle = ClayShadowStyle.floating,
     this.depth = 1,
+    this.surfaceGradient,
   });
 
   final Widget child;
@@ -21,6 +22,7 @@ class ClayContainer extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final ClayShadowStyle shadowStyle;
   final double depth;
+  final Gradient? surfaceGradient;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +33,7 @@ class ClayContainer extends StatelessWidget {
           borderRadius: borderRadius,
           shadowStyle: shadowStyle,
           depth: depth,
+          surfaceGradient: surfaceGradient,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(borderRadius),

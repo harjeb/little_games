@@ -12,12 +12,14 @@ class ClayPainter extends CustomPainter {
     required this.borderRadius,
     required this.shadowStyle,
     required this.depth,
+    this.surfaceGradient,
   });
 
   final Color surfaceColor;
   final double borderRadius;
   final ClayShadowStyle shadowStyle;
   final double depth;
+  final Gradient? surfaceGradient;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -26,10 +28,7 @@ class ClayPainter extends CustomPainter {
     }
 
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(borderRadius),
-    );
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
     final spec = AppShadows.specFor(shadowStyle, depth);
 
     if (spec.outerOpacity > 0) {
@@ -47,16 +46,19 @@ class ClayPainter extends CustomPainter {
     }
 
     final surfacePaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          surfaceColor.lighten(10),
-          surfaceColor,
-          surfaceColor.darken(6),
-        ],
-        stops: const [0, 0.58, 1],
-      ).createShader(rect);
+      ..shader =
+          (surfaceGradient ??
+                  LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      surfaceColor.lighten(10),
+                      surfaceColor,
+                      surfaceColor.darken(6),
+                    ],
+                    stops: const [0, 0.58, 1],
+                  ))
+              .createShader(rect);
     canvas.drawRRect(rrect, surfacePaint);
 
     final rimInset = math.min(
@@ -114,6 +116,7 @@ class ClayPainter extends CustomPainter {
     return surfaceColor != oldDelegate.surfaceColor ||
         borderRadius != oldDelegate.borderRadius ||
         shadowStyle != oldDelegate.shadowStyle ||
-        depth != oldDelegate.depth;
+        depth != oldDelegate.depth ||
+        surfaceGradient != oldDelegate.surfaceGradient;
   }
 }

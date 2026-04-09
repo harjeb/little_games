@@ -24,7 +24,7 @@ final yahtzeeGameProvider =
     );
 
 class YahtzeeGameNotifier extends Notifier<YahtzeeGameState> {
-  static const Duration _animationDuration = Duration(milliseconds: 620);
+  static const Duration _animationDuration = Duration(milliseconds: 760);
 
   late final YahtzeeSessionController _sessionController;
 

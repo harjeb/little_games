@@ -14,8 +14,10 @@ final class AppColors {
   static const Color mutedInk = Color(0xFF6C6882);
   static const Color white = Color(0xFFFFFAF5);
   static const Color outerShadow = Color(0x40A08070);
+  static const Color shadow = outerShadow;
   static const Color innerShadowDark = Color(0x30806050);
   static const Color innerShadowLight = Color(0x66FFFFFF);
+  static const Color glow = innerShadowLight;
   static const Color pressedShadowDark = Color(0x40705040);
   static const Color pressedShadowLight = Color(0x44FFF9F2);
 }

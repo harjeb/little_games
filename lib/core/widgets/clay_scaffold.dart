@@ -50,6 +50,7 @@ class _PlayfulBackdrop extends StatelessWidget {
             right: 30,
             child: _Blob(color: AppColors.blueberry, width: 130, height: 160),
           ),
+          Positioned.fill(child: CustomPaint(painter: _ClayDustPainter())),
         ],
       ),
     );
@@ -77,4 +78,42 @@ class _Blob extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ClayDustPainter extends CustomPainter {
+  const _ClayDustPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final softPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = Colors.white.withValues(alpha: 0.08);
+    final warmPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = AppColors.coral.withValues(alpha: 0.035);
+
+    for (var index = 0; index < 42; index++) {
+      final dx = (size.width * ((index * 37) % 100) / 100).clamp(0, size.width);
+      final dy = (size.height * ((index * 19 + 17) % 100) / 100).clamp(
+        0,
+        size.height,
+      );
+      final radius = 1.2 + (index % 4) * 0.7;
+      canvas.drawCircle(
+        Offset(dx.toDouble(), dy.toDouble()),
+        radius,
+        softPaint,
+      );
+      if (index.isEven) {
+        canvas.drawCircle(
+          Offset(dx.toDouble() + 10, dy.toDouble() - 6),
+          radius * 0.52,
+          warmPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
