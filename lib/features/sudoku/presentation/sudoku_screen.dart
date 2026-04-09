@@ -153,6 +153,7 @@ class _SudokuScreenState extends ConsumerState<SudokuScreen>
                     state: state,
                     onDigitPressed: controller.placeDigit,
                     onErasePressed: controller.eraseSelected,
+                    onHintPressed: controller.useHint,
                     onNotesTogglePressed: controller.toggleNoteMode,
                   ),
                   const SizedBox(height: 18),
@@ -370,12 +371,14 @@ class _NumberPad extends StatelessWidget {
     required this.state,
     required this.onDigitPressed,
     required this.onErasePressed,
+    required this.onHintPressed,
     required this.onNotesTogglePressed,
   });
 
   final SudokuState state;
   final ValueChanged<int> onDigitPressed;
   final VoidCallback onErasePressed;
+  final VoidCallback onHintPressed;
   final VoidCallback onNotesTogglePressed;
 
   @override
@@ -447,6 +450,13 @@ class _NumberPad extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
+            ClayButton(
+              label: l10n.hint,
+              icon: Icons.lightbulb_outline_rounded,
+              onPressed: onHintPressed,
+              backgroundColor: AppColors.butter,
+              foregroundColor: AppColors.ink,
+            ),
             ClayButton(
               label: state.isNoteMode ? l10n.noteModeOn : l10n.noteModeOff,
               icon: Icons.edit_note_rounded,

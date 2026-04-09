@@ -183,6 +183,7 @@ class AppLocalizations {
   String get notes => isChinese ? '笔记' : 'Notes';
   String get noteModeOn => isChinese ? '笔记开启' : 'Notes On';
   String get noteModeOff => isChinese ? '笔记关闭' : 'Notes Off';
+  String get hint => isChinese ? '提示' : 'Hint';
   String digitRemainingShort(int count) =>
       isChinese ? '剩 $count' : '$count left';
   String get newPuzzle => isChinese ? '新谜题' : 'New Puzzle';

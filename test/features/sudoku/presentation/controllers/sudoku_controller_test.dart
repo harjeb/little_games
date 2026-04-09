@@ -27,4 +27,23 @@ void main() {
       expect(state.cells[selectedIndex].value, isNull);
     },
   );
+
+  test('useHint fills the selected editable cell with its solution', () {
+    final container = ProviderContainer(
+      overrides: [sudokuRandomProvider.overrideWithValue(Random(0))],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(sudokuControllerProvider.notifier);
+    final initial = container.read(sudokuControllerProvider);
+    final selectedIndex = initial.selectedIndex!;
+    final expectedValue = initial.cells[selectedIndex].solutionValue;
+
+    notifier.useHint();
+
+    final state = container.read(sudokuControllerProvider);
+    expect(state.cells[selectedIndex].value, expectedValue);
+    expect(state.cells[selectedIndex].notes, isEmpty);
+    expect(state.isNoteMode, isFalse);
+  });
 }

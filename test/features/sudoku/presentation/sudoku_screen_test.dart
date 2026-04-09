@@ -31,6 +31,7 @@ void main() {
     expect(find.text('Sudoku Studio'), findsOneWidget);
     expect(find.text('Easy'), findsOneWidget);
     expect(find.text('Mistakes'), findsOneWidget);
+    expect(find.text('Hint'), findsOneWidget);
     expect(find.text('Erase'), findsOneWidget);
     expect(find.text('Notes Off'), findsOneWidget);
 

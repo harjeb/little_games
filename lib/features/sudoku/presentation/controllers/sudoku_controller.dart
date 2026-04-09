@@ -120,6 +120,40 @@ class SudokuController extends Notifier<SudokuState> {
     state = state.copyWith(cells: nextCells, clearLastErrorIndex: true);
   }
 
+  void useHint() {
+    if (state.isComplete) {
+      return;
+    }
+
+    final targetIndex = _resolveHintTarget(state.selectedIndex);
+    if (targetIndex == null) {
+      return;
+    }
+
+    final targetCell = state.cells[targetIndex];
+    final nextCells = state.cells.toList();
+    nextCells[targetIndex] = targetCell.copyWith(
+      value: targetCell.solutionValue,
+      notes: const <int>{},
+    );
+    _clearPeerNotes(nextCells, targetIndex, targetCell.solutionValue);
+    final isComplete = nextCells.every(
+      (nextCell) => nextCell.value == nextCell.solutionValue,
+    );
+
+    state = state.copyWith(
+      cells: nextCells,
+      selectedIndex: targetIndex,
+      isComplete: isComplete,
+      isNoteMode: false,
+      clearLastErrorIndex: true,
+    );
+
+    if (isComplete) {
+      _timer?.cancel();
+    }
+  }
+
   SudokuState _startPuzzle(SudokuDifficulty difficulty) {
     _timer?.cancel();
 
@@ -149,6 +183,23 @@ class SudokuController extends Notifier<SudokuState> {
     });
 
     return nextState;
+  }
+
+  int? _resolveHintTarget(int? selectedIndex) {
+    if (selectedIndex != null) {
+      final selectedCell = state.cells[selectedIndex];
+      if (!selectedCell.isClue && selectedCell.value == null) {
+        return selectedIndex;
+      }
+    }
+
+    for (var index = 0; index < state.cells.length; index++) {
+      final cell = state.cells[index];
+      if (!cell.isClue && cell.value == null) {
+        return index;
+      }
+    }
+    return null;
   }
 
   void _clearPeerNotes(List<SudokuCell> cells, int originIndex, int digit) {
